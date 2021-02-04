@@ -28,8 +28,8 @@ classdef benthic_zO2
             fun=@(zox) obj.calcbc(zox,bsd,swi,r,1)  + obj.calcFO2(zox,bsd, swi, r);
             
             % Test for eg zero oxygen at swi
-            fun0 = fun(1e-10); % >=0 for eg zero oxygen at swi
-            funzinf = fun(100); 
+            fun0 = fun(1e-9); % >=0 for eg zero oxygen at swi
+            funzinf = fun(bsd.zinf); 
             
             % Try zero flux at zinf and see if we have any O2 left
             [flxzox, conczinf, flxswi,rtmp] = obj.calcbc(bsd.zinf, bsd, swi, r, 2);
@@ -44,7 +44,7 @@ classdef benthic_zO2
                     bctype = 2;      	% BC: zero flux
                 else                    % search zox in the interval
                     bctype = 1;         % BC: zero concentration
-                    r.zox=fzero(fun,[1e-10 bsd.zinf],bsd.fzerooptions);
+                    r.zox=fzero(fun,[1e-9 bsd.zinf],bsd.fzerooptions);
                     conczinf = 0.0;
                 end
             else % same logic, in vector form

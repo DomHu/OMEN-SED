@@ -31,7 +31,7 @@ classdef benthic_test
             
             swi.Test_Dale = false;
             swi.Test_Dale_14G = false;               % use for 14G model as in Dale or nG as specified below
-            swi.plot_fig = false;                                % plot the sediment profiles
+            swi.plot_fig = true;                                % plot the sediment profiles
             swi.write_output = false;
 
             swi.calc_P_DIC_ALK=false;       % also calculate P, DIC & ALK?
@@ -53,7 +53,7 @@ classdef benthic_test
             swi.p_a = 3e-4;
             swi.p_nu = 0.125;
             swi.C0_nonbio = 1.0 * 1e-2/12*bsd.rho_sed;                 % TOC concentration at SWI (wt%) -> (mol/cm^3 bulk phase)
-            
+            swi.k = 0.0;    % in case 1G as Thullner ea. '09
             
             %            swi.FeIII0=2.8E-005; %3.0E-006;                   	% FeIII concentration at SWI (mol/cm^3) --> TODO: needs to be a flux!
              Fe_influx_Dale = 0.1667*1110.0E-006;                     % FeIII influx from Dale but just 16.67% is available for DIR (See his Tab. 2, footnote d)
@@ -118,6 +118,7 @@ classdef benthic_test
             swi.BC_wdepth_flag = false; 
             swi.BC_sed_rate_flag = false;
             swi.flux = false;
+            swi.plot_fig = true;                                % plot the sediment profiles
 
             if(swi.Test_Dale)
                 if(swi.Test_Dale_14G)
@@ -187,7 +188,7 @@ classdef benthic_test
             Output(1,12) = res.zso4;
         end
         
-        function [Cox_rate_out, Penetration_out, Flux_Fe2_Dale_units, debug, Fe_fail_xy, dxdy] = run_OMEN_RCM_global(exp_name, Zinf)
+        function [Cox_rate_out, Penetration_out, Flux_Fe2_Dale_units, debug, Fe_fail_xy, dxdy, SWI_fluxes, TOC_burial_flux] = run_OMEN_RCM_global(exp_name, Zinf)
             %% run global OMEN-SED with boundary conditions as in data
             % exp_name: string for experiment name
             % default_01: 1-degree resolution, 1m sediment-column, a-value = Arndt-parametr.
@@ -197,8 +198,8 @@ classdef benthic_test
             warning('off','all')
             warning
             
-            depth_dep_a = true;     % use depth-dependent a-values?
-            calc_res = 3;           % 1: 1/4°;  2: 1°;  3: 2°
+            depth_dep_a = false;     % use depth-dependent a-values?
+            calc_res = 2;           % 1: 1/4°;  2: 1°;  3: 2°
             
             Fe3_HR_frac = 0.1667;           % 16.67% of total FeOOH-influx is HR and thus available for DIR (See his Tab. 2, footnote d)
             hypoxic_th = 63.0e-9;           % threshold for hypoxia after Dale et al. '15
@@ -213,6 +214,7 @@ classdef benthic_test
             swi.sed_column_depth = Zinf;  % use Zinf as bsd.zinf
 
             swi.TwoG_OM_model = false;
+            OneGmodel = false;
             swi.Test_Dale = false;  % he used the same a-value evrywhere - I don't want that -- plus I use 100G
             %             swi.Test_Dale_14G = true;
             %            	if(swi.Test_Dale)
@@ -235,6 +237,10 @@ classdef benthic_test
             	water_depth_updated = -water_depth_updated;
                 %          	load data/long.dat
                 load data/lat.dat
+
+                % to calculate volume in grid-cell
+                dlat = 0.25;    % latitude difference in degrees for high-res
+                dlon = 0.25;    % longitude difference in degrees for high-res
                 
                 case 2
                 % load boundary conditions - all in 1 degree resolution
@@ -261,8 +267,12 @@ classdef benthic_test
                 %            long = long_WOA_01;
                 lat = lat_WOA_01;
                 
+                % to calculate volume in grid-cell
+                dlat = 1.0;     % latitude difference in degrees for 1 degree resolution
+                dlon = 1.0;     % longitude difference in degrees for 1 degree resolution                
+                
                 case 3 
-                                   % load boundary conditions - all in 1 degree resolution
+                                   % load boundary conditions - all in 2 degree resolution
                 load './data/BC_2degrees/toc_02.mat'                                       % TOC at SWI [wt%]     -- need to translate to mol/cm^3 solid phase, i.e. *1e-2/12*bsd.rho_sed
                 toc_in = toc_02;
                 load './data/BC_2degrees/a_02_updated.mat'                                  %  Parameter a [yrs]  (the apparent initial age of the initial organic matter mixture ) as fct of sedimentation rate dependent formulation for a (Arndt et al., 2013)
@@ -286,16 +296,44 @@ classdef benthic_test
                 %            long = long_WOA_02;
                 lat = lat_02;
                 
+                % to calculate volume in grid-cell
+                dlat = 2.0;     % latitude difference in degrees for 2 degree resolution
+                dlon = 2.0;     % longitude difference in degrees for 2 degree resolution                
+                
             end
             
-            if(depth_dep_a)
-                a_hr_updated(water_depth_updated<500) = 3e-4;;% 0.001; % shelf and slope environments after Dale and Thullner
-                a_hr_updated((water_depth_updated>=500) & (water_depth_updated<2000)) = 1.0;%0.1; % shelf and slope environments after Dale and Thullner
-             	a_hr_updated((water_depth_updated>=2000) & (water_depth_updated< 3000)) = 10.0; % intermediate environments compare Bradley and Thullner
-             	a_hr_updated((water_depth_updated>=3000) & (water_depth_updated< 4250)) = 25.0; % intermediate environments after Dale
-             	a_hr_updated(water_depth_updated>=4250) = 100.0; % abyss
+            if(OneGmodel)   % run as 1G with k-values as in Thullner ea. '09;
+                matrix_k = zeros(size(a_hr_updated));
+                matrix_k(water_depth_updated<150) = 0.221;
+              	matrix_k((water_depth_updated>=150) & (water_depth_updated<350)) = 0.208;
+              	matrix_k((water_depth_updated>=350) & (water_depth_updated<750)) = 0.174;
+              	matrix_k((water_depth_updated>=750) & (water_depth_updated<1500)) = 0.130;
+              	matrix_k((water_depth_updated>=1500) & (water_depth_updated<2750)) = 0.0718;
+              	matrix_k((water_depth_updated>=2750) & (water_depth_updated<4250)) = 0.0296;
+                matrix_k(water_depth_updated>=4250) = 0.0122;
+            else 
+                if(depth_dep_a)
+                    a_hr_updated(water_depth_updated<50) = 1.0; % 3e-4;% 0.001; % shelf and slope environments after Dale and Thullner
+                    a_hr_updated((water_depth_updated>=50) & (water_depth_updated<100)) = 10.0;%0.1; % shelf and slope environments after Dale and Thullner
+    %                a_hr_updated(water_depth_updated<100) = 3e-4;% 0.001; % shelf and slope environments after Dale and Thullner
+                    a_hr_updated((water_depth_updated>=100) & (water_depth_updated<500)) = 50.0;%0.1; % shelf and slope environments after Dale and Thullner
+                    a_hr_updated((water_depth_updated>=500) & (water_depth_updated<2000)) = 1.0;%0.1; % shelf and slope environments after Dale and Thullner
+                    a_hr_updated((water_depth_updated>=2000) & (water_depth_updated< 3000)) = 10.0; % intermediate environments compare Bradley and Thullner
+                    a_hr_updated((water_depth_updated>=3000) & (water_depth_updated< 4250)) = 25.0; % intermediate environments after Dale
+                    a_hr_updated(water_depth_updated>=4250) = 100.0; % abyss                
+                else % use sed-rate dependent but with some variations
+                    a_hr_updated_in = a_hr_updated;
+                    a_max = max(max(a_hr_updated));
+                    a_min = min(min(a_hr_updated));
+                    a_max_new = 10;
+                    a_min_new = 1.0;
+                    a_hr_updated = (a_hr_updated - a_min)./(a_max-a_min).*(a_max_new - a_min_new) + a_min_new;
+                    
+%                     a_hr_updated(water_depth_updated<50) = 1.0; % 3e-4;% 0.001; % shelf and slope environments after Dale and Thullner
+%                     a_hr_updated((water_depth_updated>=50) & (water_depth_updated<100)) = 10.0;%0.1; % shelf and slope environments after Dale and Thullner
+%                     a_hr_updated(a_hr_updated>100) = 100; 
+                end
             end
-            
             % counters for Problems in Fe-calculation
             debug.iter_fun6 = 0;      % boundaries have same sign -> reduce gammaFe2
             debug.iter_Fefail = 1;    % Problem macthing desired Fe3-influx (also zFe3 < zinf) start with 1 bc I initialized it with [0 0]
@@ -313,18 +351,6 @@ classdef benthic_test
                 
                 % calculate volume
                 % convert deg to cm CODAS package (by E.Firing,et al.) -- http://pordlabs.ucsd.edu/matlab/coord.htm
-                switch calc_res
-                    case 1
-                    dlat = 0.25;    % latitude difference in degrees for high-res
-                    dlon = 0.25;    % longitude difference in degrees for high-res
-                    case 2
-                    dlat = 1.0;     % latitude difference in degrees for 1 degree resolution
-                    dlon = 1.0;     % longitude difference in degrees for 1 degree resolution
-                    case 3
-                    dlat = 2.0;     % latitude difference in degrees for 2 degree resolution
-                    dlon = 2.0;     % longitude difference in degrees for 2 degree resolution
-                end
-                
                 rlat = lat(x) * pi/180;
                 m = 111132.09  - 566.05 * cos(2 * rlat)+ 1.2 * cos(4 * rlat);
                 dy = dlat*m;        % latitude difference in meters
@@ -350,7 +376,21 @@ classdef benthic_test
                         Penetration_out.zfeIII(x,y) = NaN;
                         Penetration_out.zso4(x,y) = NaN;
                         
-                        Flux_Fe2_Dale_units(x,y) = NaN;
+                        SWI_fluxes.flxswiO2(x,y) = NaN;
+                        if(swi.Nitrogen)
+                            SWI_fluxes.flxswiNO3(x,y) = NaN;
+                            SWI_fluxes.flxswiNH4(x,y) = NaN;
+                        end
+                        if(swi.Iron)
+                            SWI_fluxes.flxswiFe2(x,y) = NaN;
+                            Flux_Fe2_Dale_units(x,y) =  NaN;   	% in units of umol m-2 d-1 as in Dale ea. 2015, Fig. 3
+                        end
+                        SWI_fluxes.flxswiH2S(x,y) = NaN;
+                        SWI_fluxes.flxswiSO4(x,y) = NaN;
+
+                       	% save TOC flux (burial) at zinf in mol cm-2 yr-1
+                        TOC_burial_flux(x,y) = NaN;
+
                         
 %                         % not necessary - results are essentially the
 %                         same as whe using calReac above
@@ -366,6 +406,7 @@ classdef benthic_test
                         rho_sed_loc = 2.5;
                         swi.C0_nonbio = toc_in(x,y)*1e-2/12*rho_sed_loc;
                         swi.p_a = a_hr_updated(x,y);
+%                        swi.k = matrix_k(x,y);     % if use 1G model - but this leads to crazy OM degrdation
                         %swi.p_a = 15; %a_hr_updated(x,y);
                         swi.T = Tmp_BW_hr_updated(x,y);
                         swi.BC_sed_rate_flag = true;    % flag for existing BC for sed-rate
@@ -415,12 +456,27 @@ classdef benthic_test
                         Penetration_out.zno3(x,y) = res.zno3;
                         Penetration_out.zfeIII(x,y) = res.zfeIII;
                         Penetration_out.zso4(x,y) = res.zso4;
+                        
+                        % SWI-fluxes in mol cm-2 yr-1
+                        SWI_fluxes.flxswiO2(x,y) = res.flxswiO2;
+                        if(swi.Nitrogen)
+                            SWI_fluxes.flxswiNO3(x,y) = res.flxswiNO3;
+                            SWI_fluxes.flxswiNH4(x,y) = res.flxswiNH4;
+                        end
+                        if(swi.Iron)
+                            SWI_fluxes.flxswiFe2(x,y) = res.flxswiFe2;
+                            Flux_Fe2_Dale_units(x,y) = res.flxswiFe2 *10^6 *100^2 /365;   	% in units of umol m-2 d-1 as in Dale ea. 2015, Fig. 3
+                        end
+                        SWI_fluxes.flxswiH2S(x,y) = res.flxswiH2S;
+                        SWI_fluxes.flxswiSO4(x,y) = res.flxswiSO4;
+
                         % compare results with Dale
                         [F_TOC_swi, F_TOC1_swi] = res.zTOC_RCM.calcCflx(0, res.bsd, res.swi, res);
                         [F_TOC_inf, F_TOC1_inf] = res.zTOC_RCM.calcCflx(res.bsd.zinf, res.bsd, res.swi, res);
+                        % save TOC flux (burial) at zinf in mol cm-2 yr-1
+                        TOC_burial_flux(x,y) = F_TOC_inf;
                         
                         Cox_total_diff = (F_TOC_swi-F_TOC_inf)*1000 *100^2/365;      % in units of mmol m-2 d-1 as in Dale ea. 2015, Fig. 2a
-                        Flux_Fe2_Dale_units(x,y) = res.flxswiFe2 *10^6 *100^2 /365;                   % in units of umol m-2 d-1 as in Dale ea. 2015, Fig. 3
                         
                         
 %                         % calculate mean OM concentration in upper x cm
@@ -452,12 +508,14 @@ classdef benthic_test
             
             str_date = [datestr(date,7), datestr(date,5), datestr(date,11)];
             
-            save(['./output/Cox_rate_out_' exp_name '_' str_date '.mat'] , 'Cox_rate_out')
-            save(['./output/Flux_Fe2_Dale_units_' exp_name '_' str_date '.mat'] , 'Flux_Fe2_Dale_units')
-            save(['./output/Penetration_out_' exp_name '_' str_date '.mat'] , 'Penetration_out')
-            save(['./output/Fe_fail_xy_' exp_name '_' str_date '.mat'] , 'Fe_fail_xy')
+            save(['./output/' exp_name '_Cox_rate_out_' str_date '.mat'] , 'Cox_rate_out')
+            save(['./output/' exp_name '_Flux_Fe2_Dale_units_' str_date '.mat'] , 'Flux_Fe2_Dale_units')
+            save(['./output/' exp_name '_Penetration_out_' str_date '.mat'] , 'Penetration_out')
+            save(['./output/' exp_name '_Fe_fail_xy_' str_date '.mat'] , 'Fe_fail_xy')
 %            save(['./output/Cox_rate_out_flux' exp_name '_' str_date '.mat'] , 'Cox_rate_out_flux')
-        	save(['./output/dxdy_' exp_name '_' str_date '.mat'] , 'dxdy')
+        	save(['./output/' exp_name '_dxdy_' str_date '.mat'] , 'dxdy')
+        	save(['./output/' exp_name '_SWI_fluxes_' str_date '.mat'] , 'SWI_fluxes')
+        	save(['./output/' exp_name '_TOC_burial_flux_' str_date '.mat'] , 'TOC_burial_flux')
 
         end
         
@@ -1790,7 +1848,12 @@ classdef benthic_test
             %% Described in Pika et al. (2020) GMD
             
             % For comparison with original 2G results
-            if swi.nG == 2          % nothing needs to be done here - all set in default_swi()
+            if swi.nG == 1          % use 1G to compare with Thullner ea '09
+                k = swi.k;
+                C0i = swi.C0_nonbio;
+             	Fnonbioi =  swi.C0_nonbio*(1-bsd.por)*bsd.w; % NonBioturbated SWI
+
+            elseif swi.nG == 2          % nothing needs to be done here - all set in default_swi()
                 %                 F(1) = 0.5;
                 %                 F(2) = 0.5;
                 %                 C0i = F.*swi.C0_nonbio * 1e-2/12*bsd.rho_sed;       % TOC@SWI (wt%) -> (mol/cm^3 bulk phase), 2.5 sed.density (g/cm3) 0.1
