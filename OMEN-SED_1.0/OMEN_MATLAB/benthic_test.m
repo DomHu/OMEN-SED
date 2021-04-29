@@ -350,7 +350,9 @@ classdef benthic_test
                 fprintf('x, %i \n',  x);
                 
                 % calculate volume
-                % convert deg to cm CODAS package (by E.Firing,et al.) -- http://pordlabs.ucsd.edu/matlab/coord.htm
+                % convert deg to cm CODAS package (by E.Firing,et al.) --
+                % http://pordlabs.ucsd.edu/matlab/coord.htm -- 
+                % lat - is the average latitude between the 2 fixes (lats)
                 rlat = lat(x) * pi/180;
                 m = 111132.09  - 566.05 * cos(2 * rlat)+ 1.2 * cos(4 * rlat);
                 dy = dlat*m;        % latitude difference in meters
