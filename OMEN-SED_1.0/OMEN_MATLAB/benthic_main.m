@@ -16,7 +16,7 @@ classdef benthic_main < handle
         
         %sediment characteristics
         rho_sed=2.5;                            % sediment density (g/cm3)
-        wdepth=50.0;                           % water depth (m)
+        wdepth=500.0;                           % water depth (m)
         w;                                      % burial velocity  (cm/yr) - calculated by internal fct. sedrate()
         z0  = 0;                                % surface
         zbio=10.0;                              % bioturbation depth (cm)

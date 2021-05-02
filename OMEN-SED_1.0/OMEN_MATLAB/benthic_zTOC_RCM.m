@@ -33,8 +33,7 @@ classdef benthic_zTOC_RCM < handle
             rTOC_RCM.a2=(-obj.k./bsd.w);
          	% calculate bioturbated SWI
             % comment C0i calculation when we know concentrations C0i (i.e.
-            % for calculating observed profiles & sensitivity analysis, and
-            % now global analysis of degradation pathways)
+            % for calculating observed profiles & sensitivity analysis, and the global analysis of degradation pathways)
             if(swi.flux) % tranlate fux to concentration!
             swi.C0i = (swi.Fnonbioi.*(-rTOC_RCM.a1.*exp(rTOC_RCM.a1*bsd.zbio)+rTOC_RCM.b1.*exp(rTOC_RCM.b1*bsd.zbio)))./(-obj.DC1.*rTOC_RCM.b1.*rTOC_RCM.a1.*exp(rTOC_RCM.b1.*bsd.zbio) + obj.DC1.*rTOC_RCM.b1.*rTOC_RCM.a1.*exp(rTOC_RCM.a1.*bsd.zbio) + ...
                 obj.DC1.*rTOC_RCM.b1.*rTOC_RCM.a1.*bsd.por.*exp(rTOC_RCM.b1.*bsd.zbio) - obj.DC1.*rTOC_RCM.b1.*rTOC_RCM.a1.*bsd.por.*exp(rTOC_RCM.a1.*bsd.zbio) - bsd.w.*rTOC_RCM.a1.*exp(rTOC_RCM.a1.*bsd.zbio) + bsd.w.*rTOC_RCM.b1.*exp(rTOC_RCM.b1.*bsd.zbio) + ...

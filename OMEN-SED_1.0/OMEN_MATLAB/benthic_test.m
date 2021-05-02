@@ -36,7 +36,7 @@ classdef benthic_test
 
             swi.calc_P_DIC_ALK=false;       % also calculate P, DIC & ALK?
 
-            swi.IntConst_GMD= false;         % true A1, A2 as in GMD; false: use Sandra's calculation
+            swi.IntConst_GMD= true;         % true A1, A2 as in GMD; false: use Sandra's calculation
             
             swi.Nitrogen=true;                                  % calculate N (true/false)
             swi.Iron=true;                                      % calculate Fe (true/false)
@@ -50,7 +50,7 @@ classdef benthic_test
             
             % for nG-model
             swi.nG = 100;
-            swi.p_a = 3e-4;
+            swi.p_a = 1.0;
             swi.p_nu = 0.125;
             swi.C0_nonbio = 1.0 * 1e-2/12*bsd.rho_sed;                 % TOC concentration at SWI (wt%) -> (mol/cm^3 bulk phase)
             swi.k = 0.0;    % in case 1G as Thullner ea. '09
@@ -188,6 +188,122 @@ classdef benthic_test
             Output(1,12) = res.zso4;
         end
         
+        function [TOC_SWI_BC, TOC_MEAN_5cm] = inversely_calc_TOC_BC_global(exp_name, Zinf)
+            %% inversely calculate the SWI BC for TOC so that the mean wt% in upper 5cm is the same as Lee et al. (2019)
+            
+            calc_res = 2;           % 1: 1/4°;  2: 1°;  3: 2°
+
+          	swi = benthic_test.default_swi();
+            swi.flux = false;
+            
+            swi.sed_column_depth = Zinf;  % use Zinf as bsd.zinf
+
+            swi.TwoG_OM_model = false;
+            OneGmodel = false;
+            swi.Test_Dale = false;  % he used the same a-value evrywhere - I don't want that -- plus I use 100G
+            
+            switch calc_res
+                case 1
+
+                % to calculate volume in grid-cell
+                dlat = 0.25;    % latitude difference in degrees for high-res
+                dlon = 0.25;    % longitude difference in degrees for high-res
+                
+                case 2
+                % load boundary conditions - all in 1 degree resolution
+                load('./data/01_plot_BC_April_21/BC_1degree/Lee_toc_lr_weighted.mat');       % TOC at SWI [wt%]     -- need to translate to mol/cm^3 solid phase, i.e. *1e-2/12*bsd.rho_sed
+                toc_Lee = Lee_toc_lr_weighted;
+                load('./data/01_plot_BC_April_21/BC_1degree/a_lr_aligned_1to100.mat');                                   %  Parameter a [yrs]  (the apparent initial age of the initial organic matter mixture ) as fct of sedimentation rate dependent formulation for a (Arndt et al., 2013)
+%                load('./data/01_plot_BC_April_21/BC_1degree/a_lr_aligned_1to50.mat');                                   %  Parameter a [yrs]  (the apparent initial age of the initial organic matter mixture ) as fct of sedimentation rate dependent formulation for a (Arndt et al., 2013)
+                a_hr_updated = a_lr_aligned;                
+                load('./data/01_plot_BC_April_21/BC_1degree/sed_lr_weighted_aligned.mat');                           % Sedimentation rate [cm/yr] -- as in Bradley ea. 2020, after Burwicz ea. 2011
+                sed_holo_hr_updated = sed_lr_weighted_aligned;
+                load('./data/01_plot_BC_April_21/BC_1degree/water_depth_aligned.mat');                             % Seafloor depth [m]
+                water_depth_updated = -water_depth_aligned;
+                load('./data/01_plot_BC_April_21/BC_1degree/lat_lr.mat');
+                lat = lat_lr;
+                
+                % to calculate volume in grid-cell
+                dlat = 1.0;     % latitude difference in degrees for 1 degree resolution
+                dlon = 1.0;     % longitude difference in degrees for 1 degree resolution                
+                
+                case 3 
+                                   % load boundary conditions - all in 2 degree resolution
+                % to calculate volume in grid-cell
+                dlat = 2.0;     % latitude difference in degrees for 2 degree resolution
+                dlon = 2.0;     % longitude difference in degrees for 2 degree resolution                
+                
+            end 
+            
+            [m,n]=size(toc_Lee);
+            tic
+            %% loop through lat - lon
+            xstart = 1;
+            ystart = 1;
+            for x=xstart:m
+                fprintf('-------------- New latitude ----------- \n');
+                fprintf('x, %i \n',  x);
+
+                for y=ystart:n
+                    %                 fprintf('\n');
+                    fprintf('x, y, %i %i \n',  x, y);
+                    % now check for sed_holo or toc = NaN -- if yes set output to NaN
+                    if ((isnan(sed_holo_hr_updated(x,y))) | (isnan(toc_Lee(x,y)))| (isnan(water_depth_updated(x,y))))
+
+                        TOC_SWI_BC(x,y) = NaN;
+                        TOC_MEAN_5cm(x,y) = NaN;
+                    else        % valid BC: run the model
+                        
+                        
+                        rho_sed_loc = 2.5;
+                        swi.C0_nonbio = toc_Lee(x,y)*1e-2/12*rho_sed_loc;
+                        swi.p_a = a_hr_updated(x,y);
+
+                        swi.BC_sed_rate_flag = true;    % flag for existing BC for sed-rate
+                        swi.BC_sed_rate = sed_holo_hr_updated(x,y);     % holocene sed-rate
+                        
+                        swi.BC_wdepth_flag = true;
+                        swi.BC_wdepth = water_depth_updated(x,y);
+                        if(swi.BC_wdepth>7900)
+                            swi.BC_wdepth %=7900;
+                        end
+                                          
+                        res=benthic_test.calculate_meanTOC(1,swi);
+                        % check that calculated mean TOC in upper 5cm is
+                        % within 1% of value reported in Lee et al. (saved in toc_Lee)
+                        toc_threshold = 0.01;
+                        toc_SWI_BC_help = toc_Lee(x,y);
+                        result_accurate = res.Mean_OM/toc_Lee(x,y);
+
+                        while( abs(result_accurate - 1.0)> toc_threshold )
+                            % increase or decrease SWI TOC et%
+                            toc_SWI_BC_help = toc_SWI_BC_help * (2.0 - res.Mean_OM/toc_Lee(x,y));   % cases below not needed, for both cases the same calculation is needed
+                            swi.C0_nonbio = toc_SWI_BC_help*1e-2/12*rho_sed_loc;
+                            res=benthic_test.calculate_meanTOC(1,swi);
+                            result_accurate = res.Mean_OM/toc_Lee(x,y);
+
+%                            if(res.Mean_OM/toc_Lee(x,y) < 1.0)    % mean toc too small --> increase SWI-BC
+%                                toc_SWI_BC_help = toc_SWI_BC_help * (2.0 - res.Mean_OM/toc_Lee(x,y));
+%                            else        % mean toc too large --> decrease SWI-BC
+%                                toc_SWI_BC_help = toc_SWI_BC_help * (2.0 - res.Mean_OM/toc_Lee(x,y));
+%                            end
+                        end
+                        
+                	TOC_SWI_BC(x,y) = toc_SWI_BC_help;
+                    TOC_MEAN_5cm(x,y) = res.Mean_OM;
+
+      
+                    end
+                end
+            end            
+            a_min_new = nanmin(nanmin(a_hr_updated));
+            a_max_new = nanmax(nanmax(a_hr_updated));
+            save(['./data/01_plot_BC_April_21/BC_1degree/Lee_toc_lr_weighted_SWI_a', num2str(a_min_new) , 'to', num2str(a_max_new) , exp_name ,'.mat'] , 'TOC_SWI_BC')
+            save(['./data/01_plot_BC_April_21/BC_1degree/Lee_toc_lr_weighted_mean5cm_a', num2str(a_min_new) , 'to', num2str(a_max_new) , exp_name ,'.mat'] , 'TOC_MEAN_5cm')
+
+            
+        end
+   
         function [Cox_rate_out, Penetration_out, Flux_Fe2_Dale_units, debug, Fe_fail_xy, dxdy, SWI_fluxes, TOC_burial_flux] = run_OMEN_RCM_global(exp_name, Zinf)
             %% run global OMEN-SED with boundary conditions as in data
             % exp_name: string for experiment name
@@ -199,7 +315,7 @@ classdef benthic_test
             warning
             
             depth_dep_a = false;     % use depth-dependent a-values?
-            calc_res = 2;           % 1: 1/4°;  2: 1°;  3: 2°
+            calc_res = 3;           % 1: 1/4°;  2: 1°;  3: 2°
             
             Fe3_HR_frac = 0.1667;           % 16.67% of total FeOOH-influx is HR and thus available for DIR (See his Tab. 2, footnote d)
             hypoxic_th = 63.0e-9;           % threshold for hypoxia after Dale et al. '15
@@ -946,6 +1062,48 @@ classdef benthic_test
                     
                 end
             end
+        end
+        
+        
+        
+        function res = calculate_meanTOC( ncl, swi )
+            %% set OMEN and then only calculate mean TOC in upper 5cm 
+            
+            if nargin < 1
+                ncl = 1;
+            end
+            
+            if(swi.BC_wdepth_flag)
+                res.bsd = benthic_main(ncl, swi.BC_wdepth);   % specify 350m water-depth
+                res.bsd.zinf = swi.sed_column_depth;
+            else
+                res.bsd = benthic_main(ncl);
+            end
+            res.bsd.usescalarcode = ncl==1;
+            
+            if(swi.BC_sed_rate_flag)
+                res.bsd.w = swi.BC_sed_rate;
+            end
+            
+            if nargin < 2 || isempty(swi)
+                swi = benthic_test.default_swi();
+            end
+                       
+            res.swi = swi;
+            
+            % initialize then calculate
+            res.zTOC_RCM = benthic_zTOC_RCM(res.bsd);
+                        
+            [res.zTOC_RCM.k, res.swi.C0i, res.swi.Fnonbioi] = benthic_test.RCM(res.bsd, res.swi);                
+            res = res.zTOC_RCM.calc(res.bsd,res.swi, res);
+            
+            % calculate mean OM concentration in upper x cm
+            x = 5;
+            [C_x, C1_11] = res.zTOC_RCM.calcC( x, res.bsd, res.swi, res);
+            OM_10=C_x* 100*12/res.bsd.rho_sed;     % OM wt% at x cm
+            res.Mean_OM = 1/x * 100*12/res.bsd.rho_sed*res.zTOC_RCM.calcOM(0.0, x, 1, res.bsd, swi, res);   % mean OM et% in upper 5cm
+
+
         end
 
      	function plot_Fe_SA(POC_flux, O20, Cox_rate_out, Penetration_out, Flux_Fe2_Dale_units, nG)
