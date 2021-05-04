@@ -29,6 +29,7 @@ classdef benthic_zO2
             
             % Test for eg zero oxygen at swi
             fun0 = fun(1e-9); % >=0 for eg zero oxygen at swi
+            fun1 = fun(1e-12); % >=0 for eg zero oxygen at swi
             funzinf = fun(bsd.zinf); 
             
             % Try zero flux at zinf and see if we have any O2 left

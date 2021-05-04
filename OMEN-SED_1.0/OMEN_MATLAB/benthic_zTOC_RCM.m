@@ -27,6 +27,7 @@ classdef benthic_zTOC_RCM < handle
         function res = calc(obj, bsd, swi, res)
             % Calculate solution for TOC vs z
 %            res.swi.C0_nonbio = swi.C0_nonbio;
+            res.zbio_Matching_fails = false;
             
             rTOC_RCM.a1=(bsd.w-sqrt(bsd.w.^2+4.*obj.DC1.*obj.k))./(2.*obj.DC1);
             rTOC_RCM.b1=(bsd.w+sqrt(bsd.w.^2+4.*obj.DC1.*obj.k))./(2.*obj.DC1);
@@ -84,7 +85,34 @@ classdef benthic_zTOC_RCM < handle
                     res.(Names{i})(isnan(res.(Names{i}))==1)=eps;
                 end
             end
-            
+            % calculate concentration (in mol/cm3) at zbio, to check if boundary problem
+            C_zbio=sum(rTOC_RCM.A1.* exp(rTOC_RCM.a1.*bsd.zbio) + rTOC_RCM.B1.*exp(rTOC_RCM.b1.*bsd.zbio),2);
+            % if C_zbio <0  or C_zbio > TOC(SWI) -> problem, save NaN at
+            % coordinates
+            if(C_zbio < 0.0 || C_zbio >= swi.C0_nonbio) 
+                warning('Matching at zbio fails!!!');
+                res.zbio_Matching_fails = true;
+            end
+            debug_TOCprofile = false;
+            if(debug_TOCprofile)
+                for i=1:1:1001
+                    z(i) = (i-1)/10;
+                    if(z<=bsd.zbio)
+                        % was for 2G old IntConst                        C1(i)=sum(rTOC_RCM.A1.*(exp(rTOC_RCM.a1.*z(i))-exp(rTOC_RCM.b1.*z(i)))+swi.C0i.*exp(rTOC_RCM.b1.*z(i)),2);
+                        C1(i)=sum(rTOC_RCM.A1.* exp(rTOC_RCM.a1.*z(i)) + rTOC_RCM.B1.*exp(rTOC_RCM.b1.*z(i)),2);
+                    else
+                        C1(i)=sum(rTOC_RCM.A2.*exp(rTOC_RCM.a2.*z(i)),2);
+                    end
+                end
+                figure
+                plot(100*C1*12/bsd.rho_sed,-z)
+                hold on
+                t=xlim;
+                plot([0,t(1,2)], [-bsd.zbio,-bsd.zbio], 'k--')
+                xlabel ('[TOC] in zTOC')
+                ylabel('Depth (cm)')
+                hold off
+            end
             
             if(false)   % prints for checking TOC integration for SWI-flux test
                 Int_nonbio = obj.k.*((rTOC_RCM.A2/rTOC_RCM.a2*exp(rTOC_RCM.a2*bsd.zinf)) - rTOC_RCM.A2/rTOC_RCM.a2*exp(rTOC_RCM.a2*bsd.zbio));
@@ -109,7 +137,8 @@ classdef benthic_zTOC_RCM < handle
                 for i=1:1:1001
                     z(i) = (i-1)/10;
                     if(z<=bsd.zbio)
-                        C1(i)=sum(rTOC_RCM.A1.*(exp(rTOC_RCM.a1.*z(i))-exp(rTOC_RCM.b1.*z(i)))+swi.C0i.*exp(rTOC_RCM.b1.*z(i)),2);
+% was for 2G old IntConst                        C1(i)=sum(rTOC_RCM.A1.*(exp(rTOC_RCM.a1.*z(i))-exp(rTOC_RCM.b1.*z(i)))+swi.C0i.*exp(rTOC_RCM.b1.*z(i)),2);
+                        C1(i)=sum(rTOC_RCM.A1.* exp(rTOC_RCM.a1.*z(i)) + rTOC_RCM.B1.*exp(rTOC_RCM.b1.*z(i)),2);
                     else
                         C1(i)=sum(rTOC_RCM.A2.*exp(rTOC_RCM.a2.*z(i)),2);
                     end

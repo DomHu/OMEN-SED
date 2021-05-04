@@ -5,9 +5,9 @@ plot_BW_conditions = false;
 plot_depth_sedrate = false;
 
 plot_Lee_data = false;
-plot_Lee_toc_calculatedSWI = true;  % plot the inversely calculated SWI values
+plot_Lee_toc_calculatedSWI = false;  % plot the inversely calculated SWI values
 plot_Seiter_data = false;
-plot_a_value = false;
+plot_a_value = true;
 plot_no_projection = false;
 
 
@@ -463,11 +463,14 @@ if(plot_a_value)
     %% Parameter a in 2D  -- this is in 1 degree resolution
     load('./data/Pika/Parameter_log10_a_2D.mat')
     % long & lat from WOA in 1 degree resolution
-    load('./data/WOA_2018_1degree/lat_WOA_01.mat')
-    load('./data/WOA_2018_1degree/long_WOA_01.mat')
+ 	load('./BC_1degree/lat_lr.mat');      
+    load('./BC_1degree/long_lr.mat');      
     
     Parameter_a_2D = flipud(Parameter_a_2D);
     Parameter_a_2Dtotal = 10.^Parameter_a_2D;
+    
+	save('./BC_1degree/a_value_total_PK.mat' , 'Parameter_a_2Dtotal')
+
     
     fig01 = figure;
     m_proj('Robinson','longitudes',[-180 179.99], ...
@@ -475,7 +478,7 @@ if(plot_a_value)
     hold on;
     % set(gca,'FontSize',30)
     a_levels = [-0.1:0.1:2.0];
-    [C,h] = m_contourf(long_WOA_01, lat_WOA_01, Parameter_a_2D);
+    [C,h] = m_contourf(long_lr, lat_lr, Parameter_a_2D);
     set(h,'LineColor','none')
     %m_contourf(long_WOA_01, lat_WOA_01, Parameter_a_2Dtotal);
     title('log(a)')
@@ -489,7 +492,6 @@ if(plot_a_value)
     xlabel('Longitude')
     ylabel('Latitude')
     print(fig01,'-depsc2', ['SWI_a_values_PK_orig.eps']);
-    
     
     
 end

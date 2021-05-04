@@ -3,13 +3,13 @@
 % high_res:     true    -   1/4 degree resolution
 %               false   -   1 degree resolution
 
-calc_TOC_burial = false;
-calc_Regional_OM_oxidation = false;
+calc_TOC_burial = true;
+calc_Regional_OM_oxidation = true;
 calc_Total_OM_oxidation = false;    % Global total in mol/yr -- taking size of grid-cells into account!
 plot_oxidation_rates = false;
-plot_penetration = false;
+plot_penetration = true;
 plot_SWI_fluxes = false;
-calc_plot_hyp_remin_rates = true;
+calc_plot_hyp_remin_rates = false;
 
 plot_BC = false;
 
@@ -19,7 +19,7 @@ plot_oxidation_rates_fluxes = false;  %% not needed - is the same as calculate r
 zinf = 100;
 
 % high_res = false;
-calc_res = 2;           % 1: 1/4°;  2: 1°;  3: 2°
+calc_res = 3;           % 1: 1/4°;  2: 1°;  3: 2°
 
 switch calc_res
     case 1

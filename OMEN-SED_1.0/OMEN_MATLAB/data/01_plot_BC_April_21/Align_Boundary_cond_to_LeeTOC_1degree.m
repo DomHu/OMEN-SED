@@ -2,7 +2,6 @@
 %% ALSO create the total FeOOH flux from the aligned sedimentation rate
 % here using the a resolution of 1 degrees
 % use mean of neighboring cells -
-% (Note: For sedimentation rate use the Burwicz et al. (2011) equation)
 % might need to run it multiple times to
 % assure all grid-cells are filled with a value
 % at the end make grid-cells NaN that are NaN in Lee-TOC
