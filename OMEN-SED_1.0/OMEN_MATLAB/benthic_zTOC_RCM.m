@@ -109,7 +109,7 @@ classdef benthic_zTOC_RCM < handle
                 hold on
                 t=xlim;
                 plot([0,t(1,2)], [-bsd.zbio,-bsd.zbio], 'k--')
-                xlabel ('[TOC] in zTOC')
+                xlabel ('[TOC] in wt%')
                 ylabel('Depth (cm)')
                 hold off
             end
@@ -144,11 +144,11 @@ classdef benthic_zTOC_RCM < handle
                     end
                 end
                 figure
-                plot(C1,-z)
+                plot(C1*100*12/bsd.rho_sed,-z)
                 hold on
                 t=xlim;
                 plot([0,t(1,2)], [-bsd.zbio,-bsd.zbio], 'k--')
-                xlabel ('[TOC] in zTOC')
+                xlabel ('[TOC] in wt%')
                 ylabel('Depth (cm)')
                 hold off
             end

@@ -213,9 +213,12 @@ classdef benthic_test
                     % load boundary conditions - all in 1 degree resolution
                     load('./data/01_plot_BC_April_21/BC_1degree/Lee_toc_lr_weighted.mat');       % TOC at SWI [wt%]     -- need to translate to mol/cm^3 solid phase, i.e. *1e-2/12*bsd.rho_sed
                     toc_Lee = Lee_toc_lr_weighted;
-                    load('./data/01_plot_BC_April_21/BC_1degree/a_lr_aligned_1to100.mat');                                   %  Parameter a [yrs]  (the apparent initial age of the initial organic matter mixture ) as fct of sedimentation rate dependent formulation for a (Arndt et al., 2013)
+                    
+                    %load('./data/01_plot_BC_April_21/BC_1degree/a_lr_aligned_1to100.mat');                                   %  Parameter a [yrs]  (the apparent initial age of the initial organic matter mixture ) as fct of sedimentation rate dependent formulation for a (Arndt et al., 2013)
                     %                load('./data/01_plot_BC_April_21/BC_1degree/a_lr_aligned_1to50.mat');                                   %  Parameter a [yrs]  (the apparent initial age of the initial organic matter mixture ) as fct of sedimentation rate dependent formulation for a (Arndt et al., 2013)
-                    a_hr_updated = a_lr_aligned;
+                    % a_hr_updated = a_lr_aligned;
+                    load('./data/01_plot_BC_April_21/BC_1degree/a_lr_aligned_PK_filled_in_a1to10.mat');                                   %  Parameter a [yrs]  (the apparent initial age of the initial organic matter mixture ) as fct of sedimentation rate dependent formulation for a (Arndt et al., 2013)
+                    a_hr_updated = Parameter_a_total_PKsedrate1to10;
                     load('./data/01_plot_BC_April_21/BC_1degree/sed_lr_weighted_aligned.mat');                           % Sedimentation rate [cm/yr] -- as in Bradley ea. 2020, after Burwicz ea. 2011
                     sed_holo_hr_updated = sed_lr_weighted_aligned;
                     load('./data/01_plot_BC_April_21/BC_1degree/water_depth_aligned.mat');                             % Seafloor depth [m]
@@ -248,7 +251,7 @@ classdef benthic_test
                     %                 fprintf('\n');
                     fprintf('x, y, %i %i \n',  x, y);
                     % now check for sed_holo or toc = NaN -- if yes set output to NaN
-                    if ((isnan(sed_holo_hr_updated(x,y))) | (isnan(toc_Lee(x,y)))| (isnan(water_depth_updated(x,y))))
+                    if ((isnan(sed_holo_hr_updated(x,y))) | (isnan(toc_Lee(x,y))) | (isnan(a_hr_updated(x,y)))| (isnan(water_depth_updated(x,y))))
                         
                         TOC_SWI_BC(x,y) = NaN;
                         TOC_MEAN_5cm(x,y) = NaN;
@@ -298,8 +301,10 @@ classdef benthic_test
             end
             a_min_new = nanmin(nanmin(a_hr_updated));
             a_max_new = nanmax(nanmax(a_hr_updated));
-            save(['./data/01_plot_BC_April_21/BC_1degree/Lee_toc_lr_weighted_SWI_a', num2str(a_min_new) , 'to', num2str(a_max_new) , exp_name ,'.mat'] , 'TOC_SWI_BC')
-            save(['./data/01_plot_BC_April_21/BC_1degree/Lee_toc_lr_weighted_mean5cm_a', num2str(a_min_new) , 'to', num2str(a_max_new) , exp_name ,'.mat'] , 'TOC_MEAN_5cm')
+%             save(['./data/01_plot_BC_April_21/BC_1degree/Lee_toc_lr_weighted_SWI_a', num2str(a_min_new) , 'to', num2str(a_max_new) , exp_name ,'.mat'] , 'TOC_SWI_BC')
+%             save(['./data/01_plot_BC_April_21/BC_1degree/Lee_toc_lr_weighted_mean5cm_a', num2str(a_min_new) , 'to', num2str(a_max_new) , exp_name ,'.mat'] , 'TOC_MEAN_5cm')
+            save(['./data/01_plot_BC_April_21/BC_1degree/Lee_toc_lr_weighted_SWI_PK_filled_a1to10' , exp_name ,'.mat'] , 'TOC_SWI_BC')
+            save(['./data/01_plot_BC_April_21/BC_1degree/Lee_toc_lr_weighted_mean5cm_PK_filled_a1to10' , exp_name ,'.mat'] , 'TOC_MEAN_5cm')
             
             
         end
@@ -315,7 +320,7 @@ classdef benthic_test
             warning
             
             depth_dep_a = false;     % use depth-dependent a-values?
-            calc_res = 3;           % 1: 1/4°;  2: 1°;  3: 2°
+            calc_res = 2;           % 1: 1/4°;  2: 1°;  3: 2°
             
             Fe3_HR_frac = 0.1667;           % 16.67% of total FeOOH-influx is HR and thus available for DIR (See his Tab. 2, footnote d)
             hypoxic_th = 63.0e-9;           % threshold for hypoxia after Dale et al. '15
@@ -324,6 +329,11 @@ classdef benthic_test
             Cox_rate_out.grid_hypoxic = 0;
             
             Fe_fail_xy(1,:)=[0 0];
+            zbioMatching_xy_GMD(1,:)=[0 0];
+            zbioMatching_xy_final(1,:)=[0 0];
+         	NEGATIVE_OXID_xy(1,:)=[0 0];
+
+            
             swi = benthic_test.default_swi();
             swi.flux = false;
             
@@ -361,18 +371,21 @@ classdef benthic_test
                 case 2                                        
                     % load boundary conditions - all in 1 degree resolution
                     use_inversely_calculated_TOC = true;
-                    use_Lee_toc_data = false;
+                    use_Lee_toc_data = true;
                     if(use_Lee_toc_data)
                         if(use_inversely_calculated_TOC)
-                            load('./data/01_plot_BC_April_21/BC_1degree/Lee_toc_lr_weighted_SWI_a10to100_por085.mat');  % inversely calculated TOC at SWI [wt%]     -- need to translate to mol/cm^3 solid phase, i.e. *1e-2/12*bsd.rho_sed
+                            load('./data/01_plot_BC_April_21/BC_1degree/Lee_toc_lr_weighted_SWI_PK_filled_a1to10_por085.mat');  % inversely calculated TOC at SWI [wt%]     -- need to translate to mol/cm^3 solid phase, i.e. *1e-2/12*bsd.rho_sed
+%                            load('./data/01_plot_BC_April_21/BC_1degree/Lee_toc_lr_weighted_SWI_a10to100_por085.mat');  % inversely calculated TOC at SWI [wt%]     -- need to translate to mol/cm^3 solid phase, i.e. *1e-2/12*bsd.rho_sed
                             toc_in = TOC_SWI_BC;
                         else
                             load('./data/01_plot_BC_April_21/BC_1degree/Lee_toc_lr_weighted.mat');       % Mean TOC in upper 5cm from Lee [wt%]     -- need to translate to mol/cm^3 solid phase, i.e. *1e-2/12*bsd.rho_sed
                             toc_in = Lee_toc_lr_weighted;
                         end
-                        load('./data/01_plot_BC_April_21/BC_1degree/a_lr_aligned_10to100.mat');                                   %  Parameter a [yrs]  (the apparent initial age of the initial organic matter mixture ) as fct of sedimentation rate dependent formulation for a (Arndt et al., 2013)
-                        %                load('./data/01_plot_BC_April_21/BC_1degree/a_lr_aligned_1to50.mat');                                   %  Parameter a [yrs]  (the apparent initial age of the initial organic matter mixture ) as fct of sedimentation rate dependent formulation for a (Arndt et al., 2013)
-                        a_hr_updated = a_lr_aligned;
+                        load('./data/01_plot_BC_April_21/BC_1degree/a_lr_aligned_PK_filled_in_a1to10.mat');                    %  Parameter a [yrs]  (the apparent initial age of the initial organic matter mixture ) as fct of sedimentation rate dependent formulation for a (Arndt et al., 2013)
+                        a_hr_updated = Parameter_a_total_PKsedrate1to10;
+%                        load('./data/01_plot_BC_April_21/BC_1degree/a_lr_aligned_10to100.mat');                               %  Parameter a [yrs]  (the apparent initial age of the initial organic matter mixture ) as fct of sedimentation rate dependent formulation for a (Arndt et al., 2013)
+%                        load('./data/01_plot_BC_April_21/BC_1degree/a_lr_aligned_1to50.mat');                                 %  Parameter a [yrs]  (the apparent initial age of the initial organic matter mixture ) as fct of sedimentation rate dependent formulation for a (Arndt et al., 2013)
+%                        a_hr_updated = a_lr_aligned;
                         load('./data/01_plot_BC_April_21/BC_1degree/sed_lr_weighted_aligned.mat');                           % Sedimentation rate [cm/yr] -- as in Bradley ea. 2020, after Burwicz ea. 2011
                         sed_holo_hr_updated = sed_lr_weighted_aligned;
                         load('./data/01_plot_BC_April_21/BC_1degree/water_depth_aligned.mat');                             % Seafloor depth [m]
@@ -426,19 +439,22 @@ classdef benthic_test
                     
                 case 3
                     % load boundary conditions - all in 2 degree resolution
-                    use_inversely_calculated_TOC = false;
+                    use_inversely_calculated_TOC = true;
                     use_Lee_toc_data = true;
                     if(use_Lee_toc_data)
                         if(use_inversely_calculated_TOC)
-%                             load('./data/01_plot_BC_April_21/BC_1degree/Lee_toc_lr_weighted_SWI_a10to100_por085.mat');  % inversely calculated TOC at SWI [wt%]     -- need to translate to mol/cm^3 solid phase, i.e. *1e-2/12*bsd.rho_sed
-%                             toc_in = TOC_SWI_BC;
+                            load('./data/01_plot_BC_April_21/BC_2degree/Lee_TOC_SWI_BC_PK_and_SA_1to10_updated.mat');       % Inversely calculated TOC at SWI from mean toc in upper 5cm from Lee [wt%]     -- need to translate to mol/cm^3 solid phase, i.e. *1e-2/12*bsd.rho_sed
+                            toc_in = Lee_TOC_SWI_BC_PK_and_SA_1to10_updated;
                         else
                             load('./data/01_plot_BC_April_21/BC_2degree/Lee_toc_lr_weighted.mat');       % Mean TOC in upper 5cm from Lee [wt%]     -- need to translate to mol/cm^3 solid phase, i.e. *1e-2/12*bsd.rho_sed
                             toc_in = Lee_toc_lr_weighted;
                         end
-                        load('./data/01_plot_BC_April_21/BC_2degree/a_values_SA_1to100_updated.mat');                                   %  Parameter a [yrs]  (the apparent initial age of the initial organic matter mixture ) as fct of sedimentation rate dependent formulation for a (Arndt et al., 2013)
-                        %                load('./data/01_plot_BC_April_21/BC_1degree/a_lr_aligned_1to50.mat');                                   %  Parameter a [yrs]  (the apparent initial age of the initial organic matter mixture ) as fct of sedimentation rate dependent formulation for a (Arndt et al., 2013)
-                        a_hr_updated = a_values_SA_1to100_updated;
+                        
+%                         load('./data/01_plot_BC_April_21/BC_2degree/a_values_SA_1to100_updated.mat');                                   %  Parameter a [yrs]  (the apparent initial age of the initial organic matter mixture ) as fct of sedimentation rate dependent formulation for a (Arndt et al., 2013)
+%                         a_hr_updated = a_values_SA_1to100_updated;
+                        load('./data/01_plot_BC_April_21/BC_2degree/a_values_PK_and_SA_1to10_updated.mat');                                   %  Parameter a [yrs]  (the apparent initial age of the initial organic matter mixture ) as fct of sedimentation rate dependent formulation for a (Arndt et al., 2013)
+                        a_hr_updated = a_values_PK_and_SA_1to10_updated;
+
                         load('./data/01_plot_BC_April_21/BC_2degree/sed_holo_02.mat');                           % Sedimentation rate [cm/yr] -- as in Bradley ea. 2020, after Burwicz ea. 2011
                         sed_holo_hr_updated = sed_holo_02;
                         load('./data/01_plot_BC_April_21/BC_2degree/water_depth_02_updated.mat');                             % Seafloor depth [m]
@@ -522,7 +538,7 @@ classdef benthic_test
                     
                     
                     %% this is not needed anymore when the a-values are already adjusted
-                    rescale_a_values = true;                    
+                    rescale_a_values = false;                    
                     if(rescale_a_values)
                         a_hr_updated_in = a_hr_updated;
                         a_max = max(max(a_hr_updated));
@@ -534,10 +550,12 @@ classdef benthic_test
                 end
             end
             % counters for Problems in Fe-calculation
-            debug.iter_fun6 = 0;      % boundaries have same sign -> reduce gammaFe2
-            debug.iter_Fefail = 1;    % Problem macthing desired Fe3-influx (also zFe3 < zinf) start with 1 bc I initialized it with [0 0]
-            debug.iter_zbioMatching = 0;    % counter for calculating the correct TOC profile
-            
+            debug.iter_fun6 = 0;                    % boundaries have same sign -> reduce gammaFe2
+            debug.iter_Fefail = 1;                  % Problem macthing desired Fe3-influx (also zFe3 < zinf) start with 1 bc I initialized it with [0 0]
+            debug.iter_zbioMatching_GMD = 0;        % counter for calculating the correct TOC profile using the GMD IntConst
+           	debug.iter_zbioMatching_final = 0;      % counter for calculating the correct TOC profile after trying different methods
+           	debug.iter_NEGATIVE_OXID = 0;           % counter for negative total OM oxidation
+
             [m,n]=size(toc_in);
             tic
             %% loop through lat - lon
@@ -631,12 +649,52 @@ classdef benthic_test
                         % RUN OMEN-SED
                         res=benthic_test.test_benthic(1,swi);
                         
-                        % Did the calculation of the TOC profile fail?
+                        % check also if we get a negative total oxidation rate -> in that case record as fail
+                    	Cox_total_test = res.zTOC_RCM.calcReac(0.0, res.bsd.zinf, 1*(1-res.bsd.por), res.bsd, swi, res)*1000 *100^2;
+                        if(Cox_total_test<0.0)
+                            res.zbio_Matching_fails = true;
+                            fprintf('\n');
+                            fprintf(' ---------  NEGATIVE TOTAL OXIDATION RATE AT x y %i %i \n',  x, y);
+                            debug.iter_NEGATIVE_OXID = debug.iter_NEGATIVE_OXID+1;
+                            NEGATIVE_OXID_xy(debug.iter_NEGATIVE_OXID, :) = [x y];                            
+                        end                        
+                        
+                        % Did the calculation of the TOC profile fail -- or do we get a negative total OM oxidation?
                         if(res.zbio_Matching_fails)
                             fprintf('\n');
+                            fprintf('zbio Matching with GMD IntConst fails at x y %i %i \n',  x, y);
+                            debug.iter_zbioMatching_GMD = debug.iter_zbioMatching_GMD+1;
+                            zbioMatching_xy_GMD(debug.iter_zbioMatching_GMD, :) = [x y];
+                            
+                            calculate_with_relaxed_zbioMatching = true;
+                            if(calculate_with_relaxed_zbioMatching)     
+                                % use SA Integration constants here they usually work 
+                                % but are not 100% mass conserving
+                            	swi.IntConst_GMD= false;         % true A1, A2 as in GMD; false: use Sandra's calculation
+                                res=benthic_test.test_benthic(1,swi);
+                            	swi.IntConst_GMD= true;         % true A1, A2 as in GMD; false: use Sandra's calculation         
+                                
+                                % check again for a negative total oxidation rate -> in that case record as fail
+                                Cox_total_test = res.zTOC_RCM.calcReac(0.0, res.bsd.zinf, 1*(1-res.bsd.por), res.bsd, swi, res)*1000 *100^2;
+                                if(Cox_total_test<0.0)
+                                    res.zbio_Matching_fails = true;
+                                    fprintf('\n');
+                                    fprintf('------   STILL NEGATIVE TOTAL OXIDATION RATE AT x y %i %i \n',  x, y);
+                                    debug.iter_NEGATIVE_OXID = debug.iter_NEGATIVE_OXID+1;
+                                    NEGATIVE_OXID_xy(debug.iter_NEGATIVE_OXID, :) = [x y];                            
+                                end 
+
+                            end
+                        end
+                        
+                        % check again for failed matching (or negative
+                        % total Cox, in case it is negative with the new
+                        % Integration Constants
+                        if(res.zbio_Matching_fails) % TOC matching failed - save locations as NaN
+                            fprintf('\n');
                             fprintf('zbio Matching fails at x y %i %i \n',  x, y);
-                            debug.iter_zbioMatching = debug.iter_zbioMatching+1;
-                            zbioMatching_xy(debug.iter_zbioMatching, :) = [x y];
+                            debug.iter_zbioMatching_final = debug.iter_zbioMatching_final+1;
+                            zbioMatching_xy_final(debug.iter_zbioMatching_final, :) = [x y];
                             
                             % Set all result-variables to NaN
                             dxdy(x,y)   = NaN;
@@ -758,7 +816,9 @@ classdef benthic_test
             save(['./output/' exp_name '_TOC_burial_flux_' str_date '.mat'] , 'TOC_burial_flux')
             
             debug.Fe_fail_xy = Fe_fail_xy;
-            debug.zbioMatching_xy = zbioMatching_xy;
+            debug.zbioMatching_xy_GMD = zbioMatching_xy_GMD;
+            debug.zbioMatching_xy_final = zbioMatching_xy_final;
+            debug.NEGATIVE_OXID_xy = NEGATIVE_OXID_xy;
         end
         
         

@@ -38,6 +38,10 @@ if(reduce_all_BCs)
     BC{8} = Parameter_a_2Dtotal;
     load './BC_1degree/a_lr_aligned_1to100.mat';                           % a-value using Sandra's parameterization rescales to 1 - 100[yr-1]
     BC{9} = a_lr_aligned;
+    load './BC_1degree/a_lr_aligned_PK_filled_in_a1to10.mat';        	% Philip a-values, filled-in with sed-rate related a = [1, 10] [yr-1]
+    BC{10} = Parameter_a_total_PKsedrate1to10;
+    load './BC_1degree/Lee_toc_lr_weighted_SWI_PK_filled_a1to10_por085.mat';        	% Lee TOC inversely calculated
+    BC{11} = TOC_SWI_BC;
     %                 load ./BC_1degrees/long_WOA_01.mat
     %                 long_01_in = long_WOA_01;
     %                 load ./BC_1degrees/lat_WOA_01.mat
@@ -50,7 +54,7 @@ if(reduce_all_BCs)
     
     [n,m]=size(Tmp_BW_lr_aligned);
     
-    for k=9:9 %size(BC,2)
+    for k=11:11 %size(BC,2)
         BC_in = BC{k};
         
         x_new = 0;
@@ -138,6 +142,20 @@ if(reduce_all_BCs)
                 txt_title = 'a-value (yr) -- 2^\circ';
                 levels = [0:1:100];
                 limits = [0 100];
+            case 10  % a-value using Philip's values + Sandra's parameterization a = [1, 10]
+                a_values_PK_and_SA_1to10_updated = BC_02;
+                save('./BC_2degree/a_values_PK_and_SA_1to10_updated.mat' , 'a_values_PK_and_SA_1to10_updated')
+                txt_file = 'A_values_PK_filled_with_1to10_';
+                txt_title = 'a-value PK + sed-rate [1-10] (yr) -- 2^\circ';
+                levels = [0:1:100];
+                limits = [0 50];
+            case 11  % Lee TOC inversedly calculated
+                Lee_TOC_SWI_BC_PK_and_SA_1to10_updated = BC_02;
+                save('./BC_2degree/Lee_TOC_SWI_BC_PK_and_SA_1to10_updated.mat' , 'Lee_TOC_SWI_BC_PK_and_SA_1to10_updated')
+                txt_file = 'Lee_TOC_SWI_inverse_PK_filled_with_1to10_';
+                txt_title = 'Lee TOC SWI inverse PK + a=[1-10] (wt%) -- 2^\circ';
+                levels = [0:0.1:5];
+                limits = [0 3.0];
         end
         
         %% plot BC

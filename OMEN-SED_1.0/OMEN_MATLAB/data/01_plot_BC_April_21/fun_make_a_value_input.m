@@ -14,7 +14,9 @@ str_date = [datestr(date,7), datestr(date,5), datestr(date,11)];
 
 clear all;
 
-make_param_a_from_sedrate = true;
+make_param_a_PK_plus_sed_rate = true; 
+make_param_a_PK_plus_sed_rate_rescale_shallow = false; 
+make_param_a_from_sedrate = false;
 plot_fig = false;
 
 % load data in 1 degree resolution
@@ -22,12 +24,89 @@ load('./BC_1degree/lat_lr.mat');
 load('./BC_1degree/long_lr.mat');
 lat = lat_lr;
 long = long_lr;
-load('./BC_1degree/water_depth_aligned.mat');
-
+load('./BC_1degree/water_depth_aligned.mat');   % negative values (in m)
 load('./BC_1degree/Lee_toc_lr_weighted.mat')
 toc = Lee_toc_lr_weighted;
 
 
+if(make_param_a_PK_plus_sed_rate)
+   % use Philip's a-values as a start + fill-up missing values with
+   % a-values as function of sed-rate reacled to [1,10]
+
+   
+   load('./BC_1degree/sed_lr_weighted_aligned.mat');       % in cm/yr
+    load('./data/Pika/Parameter_log10_a_2D.mat');   % in 1 degree
+
+    Parameter_a_2D = flipud(Parameter_a_2D);
+    Parameter_a_2Dtotal = 10.^Parameter_a_2D;
+    
+    Parameter_a_total_PKsedrate1to10 = Parameter_a_2Dtotal;
+
+    % Get matrix for No-a-value yet
+    a_missing = NaN(size(Parameter_a_total_PKsedrate1to10));
+    a_missing(isnan(Parameter_a_total_PKsedrate1to10) & ~isnan(water_depth_aligned)) = 1.0;
+    
+    % calculate a-values \in [1, 10] as fct of sed-rate
+    loga=3.35-14.81*sed_lr_weighted_aligned;                          %sedimentation rate dependent formulation for a (Arndt et al., 2013)
+    a_lr_aligned_ori=10.^(loga);
+    
+    a_max = max(max(a_lr_aligned_ori));
+    a_min = min(min(a_lr_aligned_ori));
+    
+    % Set new range of a-values:
+    a_max_new = 10;
+    a_min_new = 1.0;   % 0.5 does not seem to work; high sed-rate cells have no value
+    a_lr_aligned = (a_lr_aligned_ori - a_min)./(a_max-a_min).*(a_max_new - a_min_new) + a_min_new;
+    
+    % save these values together with old-values
+    Parameter_a_total_PKsedrate1to10(~isnan(a_missing)) = a_lr_aligned(~isnan(a_missing));
+       
+    save(['BC_1degree/a_lr_aligned_PK_filled_in_a', num2str(a_min_new) , 'to', num2str(a_max_new) ,'.mat'] , 'Parameter_a_total_PKsedrate1to10')
+
+end
+
+if(make_param_a_PK_plus_sed_rate_rescale_shallow)
+    %% TODO THIS IS NOT WORKING YET!
+   % use Philip's a-values as a start + missing values if 
+   % < 1000m use a-values as fct sed-rate [1 10]  -- this make a too low;
+   % need different rescaling (e.g. [1,5]) to get more oxidation
+   % > 1000m use a = 10
+   
+   load('./BC_1degree/sed_lr_weighted_aligned.mat');       % in cm/yr
+    load('./data/Pika/Parameter_log10_a_2D.mat');   % in 1 degree
+
+    Parameter_a_2D = flipud(Parameter_a_2D);
+    Parameter_a_2Dtotal = 10.^Parameter_a_2D;
+    
+    Parameter_a_total_PKsedrate1to10 = Parameter_a_2Dtotal;
+    % Cells > 1000m give a = 10
+    Parameter_a_total_PKsedrate1to10( isnan(Parameter_a_total_PKsedrate1to10) & water_depth_aligned<-1000) = 10.0;
+
+    % Get matrix for water-depth < 1000m & No-a-value yet
+    a_missing = NaN(size(Parameter_a_total_PKsedrate1to10));
+    a_missing(isnan(Parameter_a_total_PKsedrate1to10) & water_depth_aligned>=-1000) = 1.0;
+    % Get sed-rate for these cells
+    Shallow_a_missing_sedrate = sed_lr_weighted_aligned.*a_missing;
+    
+    % calculate a-values \in [1, 10] for the missing shallow sites as fct of sed-rate
+    
+ 	loga=3.35-14.81*Shallow_a_missing_sedrate;                          %sedimentation rate dependent formulation for a (Arndt et al., 2013)
+    a_lr_aligned_ori=10.^(loga);
+    
+    a_max = max(max(a_lr_aligned_ori));
+    a_min = min(min(a_lr_aligned_ori));
+    
+    % Set new range of a-values:
+    a_max_new = 10;
+    a_min_new = 1.0;   % 0.5 does not seem to work; high sed-rate cells have no value
+    a_lr_aligned = (a_lr_aligned_ori - a_min)./(a_max-a_min).*(a_max_new - a_min_new) + a_min_new;
+    
+    % save these values together with old-values
+    Parameter_a_total_PKsedrate1to10(a_missing) = a_lr_aligned(a_missing);
+       
+    save(['BC_1degree/a_lr_aligned_', num2str(a_min_new) , 'to', num2str(a_max_new) ,'.mat'] , 'a_lr_aligned')
+
+end
 
 if(make_param_a_from_sedrate)
     
@@ -42,8 +121,8 @@ if(make_param_a_from_sedrate)
     a_min = min(min(a_lr_aligned_ori));
     
     % Set new range of a-values:
-    a_max_new = 100;
-    a_min_new = 10.0;   % 0.5 does not seem to work; high sed-rate cells have no value
+    a_max_new = 10;
+    a_min_new = 1.0;   % 0.5 does not seem to work; high sed-rate cells have no value
     a_lr_aligned = (a_lr_aligned_ori - a_min)./(a_max-a_min).*(a_max_new - a_min_new) + a_min_new;
     
     loga_rescaled = log10(a_lr_aligned);
