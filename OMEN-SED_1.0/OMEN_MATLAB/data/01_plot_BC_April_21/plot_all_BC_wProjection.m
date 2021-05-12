@@ -1,90 +1,90 @@
 
 path(path,'/home/domhu/Documents/MATLAB/M_Map');
 
-plot_BW_conditions = false;
+plot_BW_conditions = true;
 plot_depth_sedrate = false;
 
 plot_Lee_data = false;
 plot_Lee_toc_calculatedSWI = false;  % plot the inversely calculated SWI values
 plot_Seiter_data = false;
-plot_a_value = true;
+plot_a_value = false;
 plot_no_projection = false;
 
 
 if(plot_depth_sedrate)
-
-      
-% seafloor depth from NASA: https://neo.sci.gsfc.nasa.gov/view.php?datasetId=GEBCO_BATHY
-load './data/GEBCO_BATHY_2002-01-01_rgb_1440x720.CSV'
-
-water_depth = flipud(GEBCO_BATHY_2002_01_01_rgb_1440x720);
-water_depth_nan=find(water_depth>=0);
-water_depth(water_depth_nan)=NaN;
-
-% % add row and column of NaNs - so it's same as toc data
-% [n, m]=size(water_depth);
-% row_nan = NaN(1,m);
-% column_nan = NaN(1,n+1)';
-% water_depth=[row_nan;water_depth];
-% water_depth=[column_nan, water_depth];
-
-% make lat / lon for 1/4 resolution
-lat_quarter = [-89.875:0.25:89.875]';
-long_quarter = [-179.875:0.25:179.875]';
-
-
-% Robinson projection
-fig_SFD = figure;
-m_proj('Robinson','longitudes',[-180 179.99], ...
-           'latitudes',[-90 90]);
-hold on; 
-% set(gca,'FontSize',30)
-depth_levels=[-8000:200:0];
-[C,h] = m_contourf(long_quarter, lat_quarter, water_depth,depth_levels);
-set(h,'LineColor','none')
-title('Water Depth (m)')
-m_coast('linewidth',0.5); %('patch',[.7 .7 .7]);
-m_grid('fontsize',8);
-% hold on;
-% shading interp; 
-colorbar ('horizontal')
-colormap(parula)
-caxis([-5000.0 0.0])
-xlabel('Longitude')
-ylabel('Latitude')
-print(fig_SFD,'-depsc2', ['SeafloorDepth_NASA_Robinson_HR.eps']);
-
-
-% sedimentation rate, cm/yr (after Burwicz et al. (2011)) 
-w1 = 0.117;
-w2 = 0.006;
-z1 = 200;
-z2 = 4000;
-c1 = 3;
-c2 = 10;
-sed_rate = w1./(1+(water_depth./z1).^c1) + w2./(1+(water_depth./z2).^c2);
-
-fig_sedrate = figure;
-m_proj('Robinson','longitudes',[-180 179.99], ...
-           'latitudes',[-90 90]);
-hold on; 
-% set(gca,'FontSize',30)
+    
+    
+    % seafloor depth from NASA: https://neo.sci.gsfc.nasa.gov/view.php?datasetId=GEBCO_BATHY
+    load './data/GEBCO_BATHY_2002-01-01_rgb_1440x720.CSV'
+    
+    water_depth = flipud(GEBCO_BATHY_2002_01_01_rgb_1440x720);
+    water_depth_nan=find(water_depth>=0);
+    water_depth(water_depth_nan)=NaN;
+    
+    % % add row and column of NaNs - so it's same as toc data
+    % [n, m]=size(water_depth);
+    % row_nan = NaN(1,m);
+    % column_nan = NaN(1,n+1)';
+    % water_depth=[row_nan;water_depth];
+    % water_depth=[column_nan, water_depth];
+    
+    % make lat / lon for 1/4 resolution
+    lat_quarter = [-89.875:0.25:89.875]';
+    long_quarter = [-179.875:0.25:179.875]';
+    
+    
+    % Robinson projection
+    fig_SFD = figure;
+    m_proj('Robinson','longitudes',[-180 179.99], ...
+        'latitudes',[-90 90]);
+    hold on;
+    % set(gca,'FontSize',30)
+    depth_levels=[-8000:200:0];
+    [C,h] = m_contourf(long_quarter, lat_quarter, water_depth,depth_levels);
+    set(h,'LineColor','none')
+    title('Water Depth (m)')
+    m_coast('linewidth',0.5); %('patch',[.7 .7 .7]);
+    m_grid('fontsize',8);
+    % hold on;
+    % shading interp;
+    colorbar ('horizontal')
+    colormap(parula)
+    caxis([-5000.0 0.0])
+    xlabel('Longitude')
+    ylabel('Latitude')
+    print(fig_SFD,'-depsc2', ['SeafloorDepth_NASA_1degree_aligned_HR.eps']);
+    
+    
+    % sedimentation rate, cm/yr (after Burwicz et al. (2011))
+    w1 = 0.117;
+    w2 = 0.006;
+    z1 = 200;
+    z2 = 4000;
+    c1 = 3;
+    c2 = 10;
+    sed_rate = w1./(1+(water_depth./z1).^c1) + w2./(1+(water_depth./z2).^c2);
+    
+    fig_sedrate = figure;
+    m_proj('Robinson','longitudes',[-180 179.99], ...
+        'latitudes',[-90 90]);
+    hold on;
+    % set(gca,'FontSize',30)
     sed_levels = [0:0.005:0.13];
-[C,h] = m_contourf(long_quarter, lat_quarter, sed_rate,sed_levels);
-set(h,'LineColor','none')
+    [C,h] = m_contourf(long_quarter, lat_quarter, sed_rate,sed_levels);
+    set(h,'LineColor','none')
     title('Sedimentation rate after Burwicz (cm/yr)')
     m_coast('linewidth',1,'color','k'); %('patch',[.7 .7 .7]);
     m_grid('fontsize',8);
-% hold on;
-% shading interp; 
-colorbar ('horizontal')
-colormap(parula)
+    % hold on;
+    % shading interp;
+    colorbar ('horizontal')
+    colormap(parula)
     caxis([0.0 0.12])
-xlabel('Longitude')
-ylabel('Latitude')
-print(fig_sedrate,'-depsc2', ['Sed_Rate_Burwicz_Robinson_HR.eps']);
-
-
+    xlabel('Longitude')
+    ylabel('Latitude')
+    print(fig_sedrate,'-depsc2', ['Sed_Rate_Burwicz_1degree_aligned_HR.eps']);
+    
+    
     
     % sedimentation rate holocene from Bradley
     
@@ -108,28 +108,37 @@ print(fig_sedrate,'-depsc2', ['Sed_Rate_Burwicz_Robinson_HR.eps']);
     caxis([0.0 0.12])
     xlabel('Longitude')
     ylabel('Latitude')
-    print(fig_sedrate_Brad,'-depsc2', ['Sed_holocene_asBradley_Robinson.eps']);
+    print(fig_sedrate_Brad,'-depsc2', ['Sed_holocene_asBradley_1degree_aligned.eps']);
     
     
 end
 
 if(plot_BW_conditions)
     
-    % load data from WOA in 1 degree resolution
-  	load('./data/WOA_2018_1degree/lat_WOA_01.mat');
-  	load('./data/WOA_2018_1degree/long_WOA_01.mat');
-  	load('./data/WOA_2018_1degree/Tmp_BW_2018_01.mat');
-  	load('./data/WOA_2018_1degree/O2_BW_2018.mat');
-  	load('./data/WOA_2018_1degree/NO3_BW_2018.mat');
-
-  	% Robinson projection
+    %     % load data from WOA in 1 degree resolution
+    %   	load('./data/WOA_2018_1degree/lat_WOA_01.mat');
+    %   	load('./data/WOA_2018_1degree/long_WOA_01.mat');
+    %   	load('./data/WOA_2018_1degree/Tmp_BW_2018_01.mat');
+    %   	load('./data/WOA_2018_1degree/O2_BW_2018.mat');
+    %   	load('./data/WOA_2018_1degree/NO3_BW_2018.mat');
+    
+    % filled and aligned:
+    load('./BC_1degree/lat_lr.mat');
+    lat_WOA_01 = lat_lr;
+    load('./BC_1degree/long_lr.mat');
+    long_WOA_01 = long_lr;
+    load('./BC_1degree/Tmp_BW_lr_aligned.mat');
+    load('./BC_1degree/O2_BW_WOA2018_lr_aligned.mat');
+    load('./BC_1degree/NO3_BW_lr_aligned.mat');
+    
+    % Robinson projection
     fig_tmp_BW = figure;
     m_proj('Robinson','longitudes',[-180 179.99], ...
         'latitudes',[-90 90]);
     hold on;
     % set(gca,'FontSize',30)
-    tmp_levels = [0:1:31];
-    [C,h] = m_contourf(long_WOA_01, lat_WOA_01, Tmp_BW_2018_01, tmp_levels);
+    tmp_levels = [-5:1:31];
+    [C,h] = m_contourf(long_WOA_01, lat_WOA_01, Tmp_BW_lr_aligned, tmp_levels);
     set(h,'LineColor','none')
     title('Temperature BW (degree C)')
     m_coast('linewidth',1,'color','k'); %('patch',[.7 .7 .7]);
@@ -141,7 +150,7 @@ if(plot_BW_conditions)
     caxis([0.0 30.0])
     xlabel('Longitude')
     ylabel('Latitude')
-    print(fig_tmp_BW,'-depsc2', ['Tmp_BW_Robinson.eps']);
+    print(fig_tmp_BW,'-depsc2', ['SWI_eps/Tmp_BW_1degree_aligned.eps']);
     
     
     fig_O2_BW = figure;
@@ -150,7 +159,7 @@ if(plot_BW_conditions)
     hold on;
     % set(gca,'FontSize',30)
     O2_levels = [0:10:400];
-    [C,h] = m_contourf(long_WOA_01, lat_WOA_01, O2_BW_2018, O2_levels);
+    [C,h] = m_contourf(long_WOA_01, lat_WOA_01, O2_BW_WOA2018_lr_aligned, O2_levels);
     set(h,'LineColor','none')
     title('Oxygen BW (\muM)')
     m_coast('linewidth',1,'color','k'); %('patch',[.7 .7 .7]);
@@ -162,15 +171,15 @@ if(plot_BW_conditions)
     caxis([0.0 350.0])
     xlabel('Longitude')
     ylabel('Latitude')
-    print(fig_O2_BW,'-depsc2', ['O2_BW_Robinson.eps']);
-      
-    fig_O2_BW = figure;
+    print(fig_O2_BW,'-depsc2', ['SWI_eps/O2_BW_1degree_aligned.eps']);
+    
+    fig_NO3_BW = figure;
     m_proj('Robinson','longitudes',[-180 179.99], ...
         'latitudes',[-90 90]);
     hold on;
     % set(gca,'FontSize',30)
     NO3_levels = [0:1:52];
-    [C,h] = m_contourf(long_WOA_01, lat_WOA_01, NO3_BW_2018, NO3_levels);
+    [C,h] = m_contourf(long_WOA_01, lat_WOA_01, NO3_BW_lr_aligned, NO3_levels);
     set(h,'LineColor','none')
     title('Nitrate BW (\muM)')
     m_coast('linewidth',1,'color','k'); %('patch',[.7 .7 .7]);
@@ -182,22 +191,23 @@ if(plot_BW_conditions)
     caxis([0.0 50.0])
     xlabel('Longitude')
     ylabel('Latitude')
-    print(fig_O2_BW,'-depsc2', ['NO3_BW_Robinson.eps']);   
+    print(fig_NO3_BW,'-depsc2', ['SWI_eps/NO3_BW_1degree_aligned.eps']);
     
     
     
     % FeOOH calculated following Dale using sedimentation rate
     
-    load('./data/FluxFe_total_Burw_BW_01_por85.mat');               % [mumol/(cm2 yr)]
-    load('./data/FluxFe_total_Burw_Daleunits_BW_01_por85.mat');     % [mumol/(m2 d)]
-        
+    %     load('./data/FluxFe_total_Burw_BW_01_por85.mat');               % [mumol/(cm2 yr)]
+    %     load('./data/FluxFe_total_Burw_Daleunits_BW_01_por85.mat');     % [mumol/(m2 d)]
+    load('./BC_1degree/FluxFe_total_Burw_BW_aligned.mat'); % Total FeOOH settling-flux [mumol/(cm2 yr)] -- just 16.67% of this is available for OM-degradation; used por=0.85 to calculate it
+
     fig_O2_BW = figure;
     m_proj('Robinson','longitudes',[-180 179.99], ...
         'latitudes',[-90 90]);
     hold on;
     % set(gca,'FontSize',30)
     feooh_levels = [0:25:1150];
-    [C,h] = m_contourf(long_WOA_01, lat_WOA_01, FluxFe_total_Burw_Daleunits_BW_01_por85, feooh_levels);
+    [C,h] = m_contourf(long_WOA_01, lat_WOA_01, FluxFe_total_Burw_BW_01_por85_aligned/365*100^2, feooh_levels);
     set(h,'LineColor','none')
     title('Total flux Fe(OH)3 BW (\mumol m-2 d-1)')
     m_coast('linewidth',1,'color','k'); %('patch',[.7 .7 .7]);
@@ -209,24 +219,69 @@ if(plot_BW_conditions)
     caxis([0.0 800.0])
     xlabel('Longitude')
     ylabel('Latitude')
-    print(fig_O2_BW,'-depsc2', ['FeOOH_BW_Robinson.eps']);             
+    print(fig_O2_BW,'-depsc2', ['SWI_eps/FeOOH_BW_1degree_aligned.eps']);
     
     
-  
+    % water_depth
+    load('./BC_1degree/water_depth_aligned.mat');                             % Seafloor depth [m]
+    
+    fig_SFD = figure;
+    m_proj('Robinson','longitudes',[-180 179.99], ...
+        'latitudes',[-90 90]);
+    hold on;
+    % set(gca,'FontSize',30)
+    depth_levels=[-8000:200:0];
+    [C,h] = m_contourf(long_lr, lat_lr, water_depth_aligned,depth_levels);
+    set(h,'LineColor','none')
+    title('Water Depth (m)')
+    m_coast('linewidth',0.5); %('patch',[.7 .7 .7]);
+    m_grid('fontsize',8);
+    % hold on;
+    % shading interp;
+    colorbar ('horizontal')
+    colormap(parula)
+    caxis([-5000.0 0.0])
+    xlabel('Longitude')
+    ylabel('Latitude')
+    print(fig_SFD,'-depsc2', ['SWI_eps/SeafloorDepth_NASA_1degree_aligned_HR.eps']);
+    
+    
+    % sedimentation rate:
+    load('./BC_1degree/sed_lr_weighted_aligned.mat');                           % Sedimentation rate [cm/yr] -- as in Bradley ea. 2020, after Burwicz ea. 2011
+    sed_holo_hr_updated = sed_lr_weighted_aligned;
+    
+    % using Robinson projection
+    fig_sedrate = figure;
+    m_proj('Robinson','longitudes',[-180 179.99], ...
+        'latitudes',[-90 90]);
+    hold on;
+    sed_levels = [0:0.005:0.13];
+    [C,h] = m_contourf(long_lr, lat_lr, sed_holo_hr_updated, sed_levels);    % 1/4 degree resolution
+    set(h,'LineColor','none')
+    title('Sedimentation rate (cm/yr)')
+    m_coast('linewidth',1,'color','k'); %('patch',[.7 .7 .7]);
+    m_grid('fontsize',8);
+    colorbar ('horizontal')
+    colormap(parula)
+    caxis([0.0 0.12])
+    xlabel('Longitude')
+    ylabel('Latitude')
+    print(fig_sedrate,'-depsc2', ['SWI_eps/Sedrate_1degree_aligned.eps']);
+        
 
 end
 
 if(plot_Lee_toc_calculatedSWI)
-       %% plot the inversely calculated SWI TOC wt%
- 	load('./BC_1degree/lat_lr.mat');      
-    load('./BC_1degree/long_lr.mat');      
-  	load('./BC_1degree/Lee_toc_lr_weighted_SWI_a10to100_por085.mat');
+    %% plot the inversely calculated SWI TOC wt%
+    load('./BC_1degree/lat_lr.mat');
+    load('./BC_1degree/long_lr.mat');
+    load('./BC_1degree/Lee_toc_lr_weighted_SWI_a10to100_por085.mat');
     TOC_SWI_BC_10to100 = TOC_SWI_BC;
-  	load('./BC_1degree/Lee_toc_lr_weighted_SWI_a1to100_por085.mat');      
+    load('./BC_1degree/Lee_toc_lr_weighted_SWI_a1to100_por085.mat');
     TOC_SWI_BC_1to100 = TOC_SWI_BC;
-  	load('./BC_1degree/Lee_toc_lr_weighted.mat');      % original
-
-  	% Robinson projection
+    load('./BC_1degree/Lee_toc_lr_weighted.mat');      % original
+    
+    % Robinson projection
     fig_toc_Lee = figure;
     m_proj('Robinson','longitudes',[-180 179.99], ...
         'latitudes',[-90 90]);
@@ -246,7 +301,7 @@ if(plot_Lee_toc_calculatedSWI)
     xlabel('Longitude')
     ylabel('Latitude')
     
-      	% Robinson projection
+    % Robinson projection
     fig_toc_Lee = figure;
     m_proj('Robinson','longitudes',[-180 179.99], ...
         'latitudes',[-90 90]);
@@ -266,7 +321,7 @@ if(plot_Lee_toc_calculatedSWI)
     xlabel('Longitude')
     ylabel('Latitude')
     
-      	% Robinson projection
+    % Robinson projection
     fig_toc_Lee = figure;
     m_proj('Robinson','longitudes',[-180 179.99], ...
         'latitudes',[-90 90]);
@@ -284,10 +339,10 @@ if(plot_Lee_toc_calculatedSWI)
     colormap(parula)
     caxis([0 3.0])
     xlabel('Longitude')
-    ylabel('Latitude')    
-        
-        
-      	% Robinson projection
+    ylabel('Latitude')
+    
+    
+    % Robinson projection
     fig_toc_Lee = figure;
     m_proj('Robinson','longitudes',[-180 179.99], ...
         'latitudes',[-90 90]);
@@ -306,7 +361,7 @@ if(plot_Lee_toc_calculatedSWI)
     caxis([0 3.0])
     xlabel('Longitude')
     ylabel('Latitude')
-     
+    
 end
 
 if(plot_Lee_data)
@@ -337,7 +392,7 @@ if(plot_Lee_data)
     caxis([0.0 3.0])
     xlabel('Longitude')
     ylabel('Latitude')
-    print(fig_toc_Lee,'-depsc2', ['TOC_input_Lee_Robinson.eps']);
+    print(fig_toc_Lee,'-depsc2', ['TOC_input_Lee_1degree_aligned.eps']);
     
     % without projection
     if(plot_no_projection)
@@ -397,9 +452,9 @@ if(plot_Seiter_data)
     caxis([0.0 3.0])
     xlabel('Longitude')
     ylabel('Latitude')
-    print(fig_toc,'-depsc2', ['TOC_input_Seiter_Robinson.eps']);
+    print(fig_toc,'-depsc2', ['TOC_input_Seiter_1degree_aligned.eps']);
     
-
+    
     
     %% Pika TOC
     load('./data/Pika/Parameter_log10_a_with_BC.mat');
@@ -434,7 +489,7 @@ if(plot_Seiter_data)
     caxis([0.0 3.0])
     xlabel('Longitude')
     ylabel('Latitude')
-    print(fig_toc_Seiter,'-depsc2', ['TOC_input_Seiter_Robinson_PKtable.eps']);
+    print(fig_toc_Seiter,'-depsc2', ['TOC_input_Seiter_1degree_aligned_PKtable.eps']);
     
     
     
@@ -454,23 +509,28 @@ if(plot_Seiter_data)
         print(fig_SWI_TOC,'-depsc2', ['TOC_input_Seiter_noproj.eps']);
     end
     
-   
+    
 end
 
 
 if(plot_a_value)
     
-    %% Parameter a in 2D  -- this is in 1 degree resolution
-    load('./data/Pika/Parameter_log10_a_2D.mat')
+    % Parameter a in 2D  -- this is in 1 degree resolution
+    %    load('./data/Pika/Parameter_log10_a_2D.mat')
+    
+    % Pika 2D plus fill-in shallow ocean using sed-rate:
+    load('./BC_1degree/a_lr_aligned_PK_filled_in_a1to10.mat');                    %  Parameter a [yrs]  (the apparent initial age of the initial organic matter mixture ) as fct of sedimentation rate dependent formulation for a (Arndt et al., 2013)
+    Parameter_a_2D = Parameter_a_total_PKsedrate1to10;
+    
     % long & lat from WOA in 1 degree resolution
- 	load('./BC_1degree/lat_lr.mat');      
-    load('./BC_1degree/long_lr.mat');      
+    load('./BC_1degree/lat_lr.mat');
+    load('./BC_1degree/long_lr.mat');
     
-    Parameter_a_2D = flipud(Parameter_a_2D);
-    Parameter_a_2Dtotal = 10.^Parameter_a_2D;
+    %    Parameter_a_2D = flipud(Parameter_a_2D);
+    %    Parameter_a_2Dtotal = 10.^Parameter_a_2D;
+    Parameter_a_2D = log10(Parameter_a_2D);
+    %	save('./BC_1degree/a_value_total_PK.mat' , 'Parameter_a_2Dtotal')
     
-	save('./BC_1degree/a_value_total_PK.mat' , 'Parameter_a_2Dtotal')
-
     
     fig01 = figure;
     m_proj('Robinson','longitudes',[-180 179.99], ...
@@ -481,7 +541,7 @@ if(plot_a_value)
     [C,h] = m_contourf(long_lr, lat_lr, Parameter_a_2D);
     set(h,'LineColor','none')
     %m_contourf(long_WOA_01, lat_WOA_01, Parameter_a_2Dtotal);
-    title('log(a)')
+    title('OM reactivity (yr-1)')
     m_coast('linewidth',1,'color','k'); %('patch',[.7 .7 .7]);
     m_grid('fontsize',8);
     % hold on;
@@ -491,7 +551,7 @@ if(plot_a_value)
     %caxis([0.0 25.0])
     xlabel('Longitude')
     ylabel('Latitude')
-    print(fig01,'-depsc2', ['SWI_a_values_PK_orig.eps']);
+    print(fig01,'-depsc2', ['SWI_a_values_PK_fill_in_sedrate.eps']);
     
     
 end

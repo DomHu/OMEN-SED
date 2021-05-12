@@ -723,11 +723,19 @@ end
 
 if(calc_plot_hyp_remin_rates)
     %% plot global hypsometry of remineralization rates (compare Fig. 5a-e, Thullner ea. 2009) and penetration depths
+        % Gamma = 0.95
+%     load output/0505_Lee_PK_filled_a1to10_GMDandSAIntConst_1degree_Inverse_Cox_rate_out_050521.mat
+%     load output/0505_Lee_PK_filled_a1to10_GMDandSAIntConst_1degree_Inverse_dxdy_050521.mat
+%     load output/0505_Lee_PK_filled_a1to10_GMDandSAIntConst_1degree_Inverse_SWI_fluxes_050521.mat
+%     load output/0505_Lee_PK_filled_a1to10_GMDandSAIntConst_1degree_Inverse_Flux_Fe2_Dale_units_050521.mat
+%     load output/0505_Lee_PK_filled_a1to10_GMDandSAIntConst_1degree_Inverse_Penetration_out_050521.mat
     
-    % load output/0502_100cm_100G_Arndt_rescales_1-10_1degree_gamma0.95_dxdy_050221.mat
-    % load output/0502_100cm_100G_Arndt_rescales_1-10_1degree_gamma0.95_SWI_fluxes_050221.mat
-    % load output/0502_100cm_100G_Arndt_rescales_1-10_1degree_gamma0.95_Flux_Fe2_Dale_units_050221.mat
-    % load output/0502_100cm_100G_Arndt_rescales_1-10_1degree_gamma0.95_Penetration_out_050221.mat
+    % Gamma = 0.5
+    load output/0605_Lee_PK_filled_a1to10_GMDandSAIntConst_1degree_Inverse_GAMMA05_Cox_rate_out_060521.mat
+    load output/0605_Lee_PK_filled_a1to10_GMDandSAIntConst_1degree_Inverse_GAMMA05_dxdy_060521.mat
+    load output/0605_Lee_PK_filled_a1to10_GMDandSAIntConst_1degree_Inverse_GAMMA05_SWI_fluxes_060521.mat
+    load output/0605_Lee_PK_filled_a1to10_GMDandSAIntConst_1degree_Inverse_GAMMA05_Flux_Fe2_Dale_units_060521.mat
+    load output/0605_Lee_PK_filled_a1to10_GMDandSAIntConst_1degree_Inverse_GAMMA05_Penetration_out_060521.mat
     
     hypsometry_depths = [0 50 150 350 750 1500 2750 4250 10000];
     %% calculate area of depth regimes
@@ -799,6 +807,7 @@ if(calc_plot_hyp_remin_rates)
     % load Middelburg data
     filename = 'data/Middelburg96_GBCdataFig_1.xlsx';
     sheet = 'Rates_combined_DH';
+    plot_data = false;
     
     Range_Aerobic_Atl = 'B6:C16';
     Aerobic_Atl = xlsread(filename,sheet,Range_Aerobic_Atl);
@@ -826,10 +835,12 @@ if(calc_plot_hyp_remin_rates)
     box on;
     hold on;
     plot(Hypsometry_oxid_rates_aerobic_mumolpercm2,-hypsometry_meanDepth/1000,'ko-','MarkerFaceColor','k','MarkerSize',12);
-    scatter(Aerobic_Atl(:,2),-Aerobic_Atl(:,1)/1000,90,'ks');
-    scatter(Aerobic_Pac(:,2),-Aerobic_Pac(:,1)/1000,90,'k');
-    scatter(Aerobic_Ind(:,2),-Aerobic_Ind(:,1)/1000,90,'k^');
-    xlim([0.0 60])
+    if(plot_data)
+        scatter(Aerobic_Atl(:,2),-Aerobic_Atl(:,1)/1000,90,'ks');
+        scatter(Aerobic_Pac(:,2),-Aerobic_Pac(:,1)/1000,90,'k');
+        scatter(Aerobic_Ind(:,2),-Aerobic_Ind(:,1)/1000,90,'k^');
+    end
+    xlim([0.0 20])
     ylim([-5.0 0.0])
     %    xlabel('Aerobic (\mumol cm^{-2} yr^{-1})')
     xlabel('Aerobic')
@@ -839,9 +850,11 @@ if(calc_plot_hyp_remin_rates)
     box on;
     hold on;
     plot(Hypsometry_oxid_rates_denit_mumolpercm2,-hypsometry_meanDepth/1000,'ko-','MarkerFaceColor','k','MarkerSize',12);
+    if(plot_data)
     scatter(Denitr_Atl(:,2),-Denitr_Atl(:,1)/1000,90,'ks');
     scatter(Denitr_Pac(:,2),-Denitr_Pac(:,1)/1000,90,'k');
     scatter(Denitr_Ind(:,2),-Denitr_Ind(:,1)/1000,90,'k^');
+    end
     xlim([0.0 20.0])
     ylim([-5.0 0.0])
     xlabel('Denitrification')
@@ -865,7 +878,7 @@ if(calc_plot_hyp_remin_rates)
     xlabel('Sulfate reduction')
     ylabel('SFD  (km)');
     
-        print(fig_ox_rates,'-depsc2', ['./plots/0504_ForKiel_Lee_a_PKfilled/Hypsometry_remin_rates_' str_date '.eps']);    
+  	print(fig_ox_rates,'-depsc2', ['./plots/0504_ForKiel_Lee_a_PKfilled/Hypsometry_remin_rates_GAMMA50_' str_date '.eps']);    
     
     
     %% plot SWI-fluxes
@@ -898,7 +911,7 @@ if(calc_plot_hyp_remin_rates)
     box on;
     hold on;
     plot(Hypsometry_SWI_flux_SO4,-hypsometry_meanDepth/1000,'ko-','MarkerFaceColor','k','MarkerSize',12);
-    xlim([0.0 100.0])
+    xlim([0.0 10.0])
     ylim([-5.0 0.0])
     xlabel('SO_4')
     %    ylabel('SFD  (km)');
@@ -907,7 +920,7 @@ if(calc_plot_hyp_remin_rates)
     box on;
     hold on;
     plot(Hypsometry_SWI_flux_NH4,-hypsometry_meanDepth/1000,'ko-','MarkerFaceColor','k','MarkerSize',12);
-    xlim([-20.0 0.0])
+    xlim([-1.0 0.0])
     ylim([-5.0 0.0])
     xlabel('NH_4')
     ylabel('SFD  (km)');
@@ -925,12 +938,12 @@ if(calc_plot_hyp_remin_rates)
     box on;
     hold on;
     plot(Hypsometry_SWI_flux_H2S,-hypsometry_meanDepth/1000,'ko-','MarkerFaceColor','k','MarkerSize',12);
-    xlim([-100.0 0.0])
+    xlim([-10.0 0.0])
     ylim([-5.0 0.0])
     xlabel('H_2S')
     %    ylabel('SFD  (km)');
     
-        print(fig_ox_rates,'-depsc2', ['./plots/0504_ForKiel_Lee_a_PKfilled/Hypsometry_SWI_fluxes_' str_date '.eps']);    
+        print(fig_SWI_fluxes,'-depsc2', ['./plots/0504_ForKiel_Lee_a_PKfilled/Hypsometry_SWI_fluxes_GAMMA50_' str_date '.eps']);    
     
     
     %% plot penetration depths
@@ -949,7 +962,7 @@ if(calc_plot_hyp_remin_rates)
     lgd = legend('zO_2','zNO_3');
 %    lgd = legend('zO_2','zNO_3', 'zFeIII');
     lgd.FontSize = 20;
-            print(fig_ox_rates,'-depsc2', ['./plots/0504_ForKiel_Lee_a_PKfilled/Hypsometry_PenetrationDepths_' str_date '.eps']);    
+            print(fig_penetration_depths,'-depsc2', ['./plots/0504_ForKiel_Lee_a_PKfilled/Hypsometry_PenetrationDepths_GAMMA50_' str_date '.eps']);    
 
 end
 

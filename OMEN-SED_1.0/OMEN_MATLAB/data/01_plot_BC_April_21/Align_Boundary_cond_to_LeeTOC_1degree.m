@@ -9,8 +9,8 @@ clear all
 
 path(path,'/home/domhu/Documents/MATLAB/M_Map');
 
-align_Bcs = false;
-plot_original_BC = true;    % also plot the original BC without filled values
+align_Bcs = true;
+plot_original_BC = false;    % also plot the original BC without filled values
 make_feooh_from_sedrate = true;
 
 str_date = [datestr(date,7), datestr(date,5), datestr(date,11)];

@@ -9,8 +9,8 @@ classdef benthic_zTOC < handle
     properties
         DC1;                    % TOC diffusion coefficient (cm2/yr)
         
-        k1= 0.05;             	% TOC degradation rate constnat (1/yr)
-        k2= 0.01;             % TOC degradation rate constant (1/yr)
+        k1= 0.01;             	% TOC degradation rate constnat (1/yr)
+        k2= 0.0001;             % TOC degradation rate constant (1/yr)
         
     end
     
@@ -31,9 +31,9 @@ classdef benthic_zTOC < handle
             % calculate bioturbated SWI
             % comment C01 calculation for calculating observed profiles &
             % sensitivity analysis (as we have concentrations C0i for this)
-            swi.C01 = (swi.Fnonbio1*(-rTOC.a11*exp(rTOC.a11*bsd.zbio)+rTOC.b11*exp(rTOC.b11*bsd.zbio)))/(-obj.DC1*rTOC.b11*rTOC.a11*exp(rTOC.b11*bsd.zbio) + obj.DC1*rTOC.b11*rTOC.a11*exp(rTOC.a11*bsd.zbio) + ...
-                obj.DC1*rTOC.b11*rTOC.a11*bsd.por*exp(rTOC.b11*bsd.zbio) - obj.DC1*rTOC.b11*rTOC.a11*bsd.por*exp(rTOC.a11*bsd.zbio) - bsd.w*rTOC.a11*exp(rTOC.a11*bsd.zbio) + bsd.w*rTOC.b11*exp(rTOC.b11*bsd.zbio) + ...
-                bsd.w*bsd.por*rTOC.a11*exp(rTOC.a11*bsd.zbio) - bsd.w*bsd.por*rTOC.b11*exp(rTOC.b11*bsd.zbio));
+%             swi.C01 = (swi.Fnonbio1*(-rTOC.a11*exp(rTOC.a11*bsd.zbio)+rTOC.b11*exp(rTOC.b11*bsd.zbio)))/(-obj.DC1*rTOC.b11*rTOC.a11*exp(rTOC.b11*bsd.zbio) + obj.DC1*rTOC.b11*rTOC.a11*exp(rTOC.a11*bsd.zbio) + ...
+%                 obj.DC1*rTOC.b11*rTOC.a11*bsd.por*exp(rTOC.b11*bsd.zbio) - obj.DC1*rTOC.b11*rTOC.a11*bsd.por*exp(rTOC.a11*bsd.zbio) - bsd.w*rTOC.a11*exp(rTOC.a11*bsd.zbio) + bsd.w*rTOC.b11*exp(rTOC.b11*bsd.zbio) + ...
+%                 bsd.w*bsd.por*rTOC.a11*exp(rTOC.a11*bsd.zbio) - bsd.w*bsd.por*rTOC.b11*exp(rTOC.b11*bsd.zbio));
             res.swi.C01 = swi.C01;
             
             rTOC.A11=-(swi.C01.*rTOC.b11.*exp(rTOC.b11.*bsd.zbio))./(rTOC.a11.*exp(rTOC.a11.*bsd.zbio)-rTOC.b11.*exp(rTOC.b11.*bsd.zbio)+bsd.tol_const);
@@ -44,9 +44,9 @@ classdef benthic_zTOC < handle
             rTOC.a22=(-obj.k2./bsd.w);
             % calculate bioturbated SWI
             % comment C02 calculation for sensitivity analysis (as we have concentrations C0i for this)
-            swi.C02 = (swi.Fnonbio2*(-rTOC.a12*exp(rTOC.a12*bsd.zbio)+rTOC.b12*exp(rTOC.b12*bsd.zbio)))/(-obj.DC1*rTOC.b12*rTOC.a12*exp(rTOC.b12*bsd.zbio) + obj.DC1*rTOC.b12*rTOC.a12*exp(rTOC.a12*bsd.zbio) + ...
-                obj.DC1*rTOC.b12*rTOC.a12*bsd.por*exp(rTOC.b12*bsd.zbio) - obj.DC1*rTOC.b12*rTOC.a12*bsd.por*exp(rTOC.a12*bsd.zbio) - bsd.w*rTOC.a12*exp(rTOC.a12*bsd.zbio) + bsd.w*rTOC.b12*exp(rTOC.b12*bsd.zbio) + ...
-                bsd.w*bsd.por*rTOC.a12*exp(rTOC.a12*bsd.zbio) - bsd.w*bsd.por*rTOC.b12*exp(rTOC.b12*bsd.zbio));
+%             swi.C02 = (swi.Fnonbio2*(-rTOC.a12*exp(rTOC.a12*bsd.zbio)+rTOC.b12*exp(rTOC.b12*bsd.zbio)))/(-obj.DC1*rTOC.b12*rTOC.a12*exp(rTOC.b12*bsd.zbio) + obj.DC1*rTOC.b12*rTOC.a12*exp(rTOC.a12*bsd.zbio) + ...
+%                 obj.DC1*rTOC.b12*rTOC.a12*bsd.por*exp(rTOC.b12*bsd.zbio) - obj.DC1*rTOC.b12*rTOC.a12*bsd.por*exp(rTOC.a12*bsd.zbio) - bsd.w*rTOC.a12*exp(rTOC.a12*bsd.zbio) + bsd.w*rTOC.b12*exp(rTOC.b12*bsd.zbio) + ...
+%                 bsd.w*bsd.por*rTOC.a12*exp(rTOC.a12*bsd.zbio) - bsd.w*bsd.por*rTOC.b12*exp(rTOC.b12*bsd.zbio));
             res.swi.C02 = swi.C02;
             
             rTOC.A12=-(swi.C02.*rTOC.b12.*exp(rTOC.b12.*bsd.zbio))./(rTOC.a12.*exp(rTOC.a12.*bsd.zbio)-rTOC.b12.*exp(rTOC.b12.*bsd.zbio)+bsd.tol_const);
