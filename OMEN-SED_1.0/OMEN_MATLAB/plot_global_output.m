@@ -3,6 +3,10 @@
 % high_res:     true    -   1/4 degree resolution
 %               false   -   1 degree resolution
 
+path(path,'/home/domhu/Documents/MATLAB/M_Map');
+
+load_data=true;
+
 print_SWI_TOC_BC = false;
 calc_TOC_burial = false;
 calc_Regional_OM_oxidation = false;
@@ -10,9 +14,9 @@ calc_Total_OM_oxidation = false;    % Global total in mol/yr -- taking size of g
 plot_oxidation_rates = false;
 plot_penetration = false;
 plot_SWI_fluxes = false;
-calc_plot_hyp_remin_rates = true;
+calc_plot_hyp_remin_rates = false;
 
-plot_BC = false;
+plot_BC = true;
 
 % NOT NEEDED:
 plot_Fe2_efflux = false;
@@ -66,7 +70,7 @@ if(print_SWI_TOC_BC)
         limits = [0 3.0];
         [C,h] = m_contourf(long, lat,  toc_in, levels);
         set(h,'LineColor','none')
-        title('TOC (wt%) -- Lee et al. (2019)')
+        title('TOC (wt%)') % -- Lee et al. (2019)')
         m_coast('linewidth',1,'color','k');
         m_coast('patch',[.7 .7 .7]);
         m_grid('fontsize',8);
@@ -75,12 +79,16 @@ if(print_SWI_TOC_BC)
         caxis(limits)
         xlabel('Longitude')
         ylabel('Latitude')
-        print(fig_SWI_fluxO2,'-depsc2', ['./plots/0504_ForKiel_Lee_a_PKfilled/SWI_TOC_inverse_' str_date '.eps']);    
+%        print(fig_SWI_fluxO2,'-depsc2', ['./plots/SWI_Lee_toc_lr_weighted_SWI_PK_filled_a1to10_por085_' str_date '.eps']);    
+        print(fig_SWI_fluxO2,'-dpng', ['./plots/SWI_Lee_toc_lr_weighted_SWI_PK_filled_a1to10_por085_' str_date '.png']);    
 end
 
 if(calc_TOC_burial)
     % in mol cm-2 yr-1
-    %     load output/0302_50cm_100G_Arndt_rescales_1-10_1degree_TOC_burial_flux_030221.mat
+    if(load_data)
+    load output/por08_everywhere/2806_a1to10_GMDandSA_IC_1deg_Inverse_GAMMA95_por080_TOC_burial_flux_280621.mat
+  	load output/por08_everywhere/2806_a1to10_GMDandSA_IC_1deg_Inverse_GAMMA95_por080_dxdy_280621.mat
+    end
     
     % define depth regimes after Dunne et al. 2005:
     near_shore = 50;
@@ -111,10 +119,12 @@ if(calc_Regional_OM_oxidation)
     slope = 2000;
     
     %     % m^2 per grid-cell
-    %     load output/dxdy_0302_50cm_100G_Arndt_rescales_1-10_2degree_030221.mat
+    %     load output/dxdy_0302_50cm_100G_Arndt_rescales_1-10_2degree_280621.mat
     %
     %     % oxidation rates in mmol m-2 yr-1
-    %     load output/Cox_rate_out_0302_50cm_100G_Arndt_rescales_1-10_2degree_030221.mat
+    if(load_data)
+    load output/por08_everywhere/2806_a1to10_GMDandSA_IC_1deg_Inverse_GAMMA95_por080_Cox_rate_out_280621.mat
+    end
     Cox_aerobic = Cox_rate_out.Cox_aerobic;
     Cox_denitr=Cox_rate_out.Cox_denitr;
     Cox_FeIII= Cox_rate_out.Cox_FeIII;
@@ -152,7 +162,8 @@ if(calc_Regional_OM_oxidation)
     Frac_NearShore.sulfate = NearShore_OM_oxid_Pg.sulfate/Total_OM_oxid_Pg.NearShore*100;
     
     if(abs(NearShore_OM_oxid_Pg.aerobic+NearShore_OM_oxid_Pg.denitr+NearShore_OM_oxid_Pg.FeIII+NearShore_OM_oxid_Pg.sulfate - Total_OM_oxid_Pg.NearShore)>1e-6)
-        error('NearShore ~= 1.0');
+        fprintf('NearShore ~= 1.0');
+        Oxid_Diff = abs(NearShore_OM_oxid_Pg.aerobic+NearShore_OM_oxid_Pg.denitr+NearShore_OM_oxid_Pg.FeIII+NearShore_OM_oxid_Pg.sulfate - Total_OM_oxid_Pg.NearShore)
     end
     
     % Shelf
@@ -167,7 +178,8 @@ if(calc_Regional_OM_oxidation)
     Frac_Shelf.sulfate = Shelf_OM_oxid_Pg.sulfate/Total_OM_oxid_Pg.Shelf*100;
     
     if(abs(Shelf_OM_oxid_Pg.aerobic+Shelf_OM_oxid_Pg.denitr+Shelf_OM_oxid_Pg.FeIII+Shelf_OM_oxid_Pg.sulfate - Total_OM_oxid_Pg.Shelf)>1e-6)
-        error('Shelf ~= 1.0');
+        fprintf('Shelf ~= 1.0');
+        Oxid_Diff = abs(Shelf_OM_oxid_Pg.aerobic+Shelf_OM_oxid_Pg.denitr+Shelf_OM_oxid_Pg.FeIII+Shelf_OM_oxid_Pg.sulfate - Total_OM_oxid_Pg.Shelf)
     end
     
     % Slope
@@ -182,7 +194,9 @@ if(calc_Regional_OM_oxidation)
     Frac_Slope.sulfate = Slope_OM_oxid_Pg.sulfate/Total_OM_oxid_Pg.Slope*100;
     
     if(abs(Slope_OM_oxid_Pg.aerobic+Slope_OM_oxid_Pg.denitr+Slope_OM_oxid_Pg.FeIII+Slope_OM_oxid_Pg.sulfate - Total_OM_oxid_Pg.Slope)>1e-6)
-        error('Slope ~= 1.0');
+        fprintf('Slope ~= 1.0 \n');
+        Oxid_Diff = abs(Slope_OM_oxid_Pg.aerobic+Slope_OM_oxid_Pg.denitr+Slope_OM_oxid_Pg.FeIII+Slope_OM_oxid_Pg.sulfate - Total_OM_oxid_Pg.Slope)
+%        error('Slope ~= 1.0');
     end
     
     % Plain
@@ -197,7 +211,9 @@ if(calc_Regional_OM_oxidation)
     Frac_Plain.sulfate = Plain_OM_oxid_Pg.sulfate/Total_OM_oxid_Pg.Plain*100;
     
     if(abs(Plain_OM_oxid_Pg.aerobic+Plain_OM_oxid_Pg.denitr+Plain_OM_oxid_Pg.FeIII+Plain_OM_oxid_Pg.sulfate - Total_OM_oxid_Pg.Plain)>1e-6)
-        error('Plain ~= 1.0');
+        fprintf('Plain ~= 1.0');
+        Oxid_Diff = abs(Plain_OM_oxid_Pg.aerobic+Plain_OM_oxid_Pg.denitr+Plain_OM_oxid_Pg.FeIII+Plain_OM_oxid_Pg.sulfate - Total_OM_oxid_Pg.Plain)
+%        error('Plain ~= 1.0');
     end
     
     %% calculate area of depth regimes
@@ -284,8 +300,9 @@ if(plot_oxidation_rates)
     caxis(limits)
     xlabel('Longitude')
     ylabel('Latitude')
-    print(fig_OMoxid_total,'-depsc2', ['./plots/0504_ForKiel_Lee_a_PKfilled/OM_oxidation_Total_' str_date '.eps']);
-    
+    print(fig_OMoxid_total,'-depsc2', ['./plots/0107_For_Goldschmidt_por08_gamma50/OM_oxidation_Total_' str_date '.eps']);
+    print(fig_OMoxid_total,'-dpng', ['./plots/0107_For_Goldschmidt_por08_gamma50/OM_oxidation_Total_' str_date ]);  % as .png
+
     
     % rates for diff TEA in mumol cm-2 yr-1
     fig_OM_ox_aerobic= figure;
@@ -305,8 +322,9 @@ if(plot_oxidation_rates)
     caxis(limits)
     xlabel('Longitude')
     ylabel('Latitude')
-    print(fig_OM_ox_aerobic,'-depsc2', ['./plots/0504_ForKiel_Lee_a_PKfilled/OM_oxidation_aerobic_' str_date '.eps']);
-    
+    print(fig_OM_ox_aerobic,'-depsc2', ['./plots/0107_For_Goldschmidt_por08_gamma50/OM_oxidation_aerobic_' str_date '.eps']);
+	print(fig_OM_ox_aerobic,'-dpng', ['./plots/0107_For_Goldschmidt_por08_gamma50/OM_oxidation_aerobic_' str_date ]);
+
     
     fig_OM_ox_denit= figure;
     m_proj('Robinson','longitudes',[-180 179.99], ...
@@ -325,7 +343,8 @@ if(plot_oxidation_rates)
     caxis(limits)
     xlabel('Longitude')
     ylabel('Latitude')
-    print(fig_OM_ox_denit,'-depsc2', ['./plots/0504_ForKiel_Lee_a_PKfilled/OM_oxidation_denit_' str_date '.eps']);
+    print(fig_OM_ox_denit,'-depsc2', ['./plots/0107_For_Goldschmidt_por08_gamma50/OM_oxidation_denit_' str_date '.eps']);
+    print(fig_OM_ox_denit,'-dpng', ['./plots/0107_For_Goldschmidt_por08_gamma50/OM_oxidation_denit_' str_date ]);
     
     
     fig_OM_ox_Fe_red= figure;
@@ -345,7 +364,8 @@ if(plot_oxidation_rates)
     caxis(limits)
     xlabel('Longitude')
     ylabel('Latitude')
-    print(fig_OM_ox_Fe_red,'-depsc2', ['./plots/0504_ForKiel_Lee_a_PKfilled/OM_oxidation_FeIII_red_' str_date '.eps']);
+    print(fig_OM_ox_Fe_red,'-depsc2', ['./plots/0107_For_Goldschmidt_por08_gamma50/OM_oxidation_FeIII_red_' str_date '.eps']);
+    print(fig_OM_ox_Fe_red,'-dpng', ['./plots/0107_For_Goldschmidt_por08_gamma50/OM_oxidation_FeIII_red_' str_date ]);
     
     
     fig_OM_ox_sulfate_red= figure;
@@ -365,7 +385,8 @@ if(plot_oxidation_rates)
     caxis(limits)
     xlabel('Longitude')
     ylabel('Latitude')
-    print(fig_OM_ox_sulfate_red,'-depsc2', ['./plots/0504_ForKiel_Lee_a_PKfilled/OM_oxidation_Sulfate_red_' str_date '.eps']);
+    print(fig_OM_ox_sulfate_red,'-depsc2', ['./plots/0107_For_Goldschmidt_por08_gamma50/OM_oxidation_Sulfate_red_' str_date '.eps']);
+    print(fig_OM_ox_sulfate_red,'-dpng', ['./plots/0107_For_Goldschmidt_por08_gamma50/OM_oxidation_Sulfate_red_' str_date ]);
     
     if(true)
         %% Fraction of total
@@ -386,7 +407,8 @@ if(plot_oxidation_rates)
         caxis(limits)
         xlabel('Longitude')
         ylabel('Latitude')
-        print(fig_OM_ox_aerobic_frac,'-depsc2', ['./plots/0504_ForKiel_Lee_a_PKfilled/OM_oxidation_aerobic_red_frac_' str_date '.eps']);
+        print(fig_OM_ox_aerobic_frac,'-depsc2', ['./plots/0107_For_Goldschmidt_por08_gamma50/OM_oxidation_aerobic_red_frac_' str_date '.eps']);
+        print(fig_OM_ox_aerobic_frac,'-dpng', ['./plots/0107_For_Goldschmidt_por08_gamma50/OM_oxidation_aerobic_red_frac_' str_date ]);
         
         
         fig_OM_ox_denit_frac= figure;
@@ -406,7 +428,8 @@ if(plot_oxidation_rates)
         caxis(limits)
         xlabel('Longitude')
         ylabel('Latitude')
-        print(fig_OM_ox_denit_frac,'-depsc2', ['./plots/0504_ForKiel_Lee_a_PKfilled/OM_oxidation_denit_frac_' str_date '.eps']);
+        print(fig_OM_ox_denit_frac,'-depsc2', ['./plots/0107_For_Goldschmidt_por08_gamma50/OM_oxidation_denit_frac_' str_date '.eps']);
+        print(fig_OM_ox_denit_frac,'-dpng', ['./plots/0107_For_Goldschmidt_por08_gamma50/OM_oxidation_denit_frac_' str_date ]);
         
         
         fig_OM_ox_Fe_frac= figure;
@@ -426,7 +449,8 @@ if(plot_oxidation_rates)
         caxis(limits)
         xlabel('Longitude')
         ylabel('Latitude')
-        print(fig_OM_ox_Fe_frac,'-depsc2', ['./plots/0504_ForKiel_Lee_a_PKfilled/OM_oxidation_FeIII_red_frac_' str_date '.eps']);
+        print(fig_OM_ox_Fe_frac,'-depsc2', ['./plots/0107_For_Goldschmidt_por08_gamma50/OM_oxidation_FeIII_red_frac_' str_date '.eps']);
+        print(fig_OM_ox_Fe_frac,'-dpng', ['./plots/0107_For_Goldschmidt_por08_gamma50/OM_oxidation_FeIII_red_frac_' str_date ]);
         
         fig_OM_ox_sulfate_frac= figure;
         m_proj('Robinson','longitudes',[-180 179.99], ...
@@ -445,7 +469,8 @@ if(plot_oxidation_rates)
         caxis(limits)
         xlabel('Longitude')
         ylabel('Latitude')
-        print(fig_OM_ox_sulfate_frac,'-depsc2', ['./plots/0504_ForKiel_Lee_a_PKfilled/OM_oxidation_sulfate_red_frac_' str_date '.eps']);
+        print(fig_OM_ox_sulfate_frac,'-depsc2', ['./plots/0107_For_Goldschmidt_por08_gamma50/OM_oxidation_sulfate_red_frac_' str_date '.eps']);
+        print(fig_OM_ox_sulfate_frac,'-dpng', ['./plots/0107_For_Goldschmidt_por08_gamma50/OM_oxidation_sulfate_red_frac_' str_date ]);
         
         
     end
@@ -456,7 +481,9 @@ end
 
 %% plot TEA penetration depth
 if(plot_penetration)
-    % load output/0502_100cm_100G_Arndt_rescales_1-10_1degree_gamma0.95_Penetration_out_050221.mat
+        if(load_data)
+            load output/por08_everywhere/2806_a1to10_GMDandSA_IC_1deg_Inverse_GAMMA95_por080_Penetration_out_280621.mat
+        end
     zox = Penetration_out.zox;
     zno3 = Penetration_out.zno3;
     zfeIII = Penetration_out.zfeIII;
@@ -490,7 +517,31 @@ if(plot_penetration)
         caxis(limits)
         xlabel('Longitude')
         ylabel('Latitude')
-        print(fig_zox,'-depsc2', ['./plots/0504_ForKiel_Lee_a_PKfilled/zox_' str_date '.eps']);
+        print(fig_zox,'-depsc2', ['./plots/0107_For_Goldschmidt_por08_gamma50/zox_' str_date '.eps']);
+        print(fig_zox,'-dpng', ['./plots/0107_For_Goldschmidt_por08_gamma50/zox_' str_date ]);
+        
+        zox_help = zox;
+        zox_help(zox_help==0)=0.001;  % set zero zox to very small value
+        zoxlog = log10(zox_help);
+    fig_zox10cm = figure;
+        m_proj('Robinson','longitudes',[-180 179.99], ...
+            'latitudes',[-90 90]);
+        hold on;
+        levels = [-3:0.05:2];
+        limits = [-1 2];
+        [C,h] = m_contourf(long, lat,  zoxlog, levels);
+        set(h,'LineColor','none')
+    title('O_2 penetration depth [log(cm)]')
+        m_coast('linewidth',1,'color','k');
+        m_coast('patch',[.7 .7 .7]);
+        m_grid('fontsize',8);
+        colorbar ('horizontal')
+        colormap(parula)
+        caxis(limits)
+        xlabel('Longitude')
+        ylabel('Latitude')
+        print(fig_zox10cm,'-depsc2', ['./plots/0107_For_Goldschmidt_por08_gamma50/zoxlog_100cm' str_date '.eps']);
+        print(fig_zox10cm,'-dpng', ['./plots/0107_For_Goldschmidt_por08_gamma50/zoxlog_100cm' str_date ]);
 
         
     fig_zNO3 = figure;
@@ -510,9 +561,30 @@ if(plot_penetration)
         caxis(limits)
         xlabel('Longitude')
         ylabel('Latitude')
-        print(fig_zNO3,'-depsc2', ['./plots/0504_ForKiel_Lee_a_PKfilled/zNO3_' str_date '.eps']);
+        print(fig_zNO3,'-depsc2', ['./plots/0107_For_Goldschmidt_por08_gamma50/zNO3_' str_date '.eps']);
+        print(fig_zNO3,'-dpng', ['./plots/0107_For_Goldschmidt_por08_gamma50/zNO3_' str_date ]);
 
-   
+    fig_zNO3log = figure;
+        m_proj('Robinson','longitudes',[-180 179.99], ...
+            'latitudes',[-90 90]);
+        hold on;
+        levels = [-3:0.05:2];
+        limits = [-1 2];
+        [C,h] = m_contourf(long, lat,  log10(zno3), levels);
+        set(h,'LineColor','none')
+        title('NO_3 penetration depth [log(cm)]')
+        m_coast('linewidth',1,'color','k');
+        m_coast('patch',[.7 .7 .7]);
+        m_grid('fontsize',8);
+        colorbar ('horizontal')
+        colormap(parula)
+        caxis(limits)
+        xlabel('Longitude')
+        ylabel('Latitude')
+        print(fig_zNO3log,'-depsc2', ['./plots/0107_For_Goldschmidt_por08_gamma50/zNO3log_' str_date '.eps']);
+        print(fig_zNO3log,'-dpng', ['./plots/0107_For_Goldschmidt_por08_gamma50/zNO3log_' str_date ]);
+
+        
         fig_zFeIII = figure;
         m_proj('Robinson','longitudes',[-180 179.99], ...
             'latitudes',[-90 90]);
@@ -530,7 +602,8 @@ if(plot_penetration)
         caxis(limits)
         xlabel('Longitude')
         ylabel('Latitude')
-        print(fig_zFeIII,'-depsc2', ['./plots/0504_ForKiel_Lee_a_PKfilled/zFeIII_' str_date '.eps']);
+        print(fig_zFeIII,'-depsc2', ['./plots/0107_For_Goldschmidt_por08_gamma50/zFeIII_' str_date '.eps']);
+        print(fig_zFeIII,'-dpng', ['./plots/0107_For_Goldschmidt_por08_gamma50/zFeIII_' str_date ]);
 
     
         fig_zSO4 = figure;
@@ -550,18 +623,19 @@ if(plot_penetration)
         caxis(limits)
         xlabel('Longitude')
         ylabel('Latitude')
-        print(fig_zSO4,'-depsc2', ['./plots/0504_ForKiel_Lee_a_PKfilled/zSO4_' str_date '.eps']);
+        print(fig_zSO4,'-depsc2', ['./plots/0107_For_Goldschmidt_por08_gamma50/zSO4_' str_date '.eps']);
+        print(fig_zSO4,'-dpng', ['./plots/0107_For_Goldschmidt_por08_gamma50/zSO4_' str_date ]);
 
 end
 
 %% plot calculated SWI-fluxes in mumol cm-2 yr-1
 % positive values are fluxes into the sediments!
 if(plot_SWI_fluxes)
-    
-    % load output/0502_100cm_100G_Arndt_rescales_1-10_1degree_gamma0.95_SWI_fluxes_050221.mat
-    % load output/0502_100cm_100G_Arndt_rescales_1-10_1degree_gamma0.95_Flux_Fe2_Dale_units_050221.mat
-    
- if(false)   
+        if(load_data)
+    load output/por08_everywhere/2806_a1to10_GMDandSA_IC_1deg_Inverse_GAMMA95_por080_SWI_fluxes_280621.mat
+    load output/por08_everywhere/2806_a1to10_GMDandSA_IC_1deg_Inverse_GAMMA95_por080_Flux_Fe2_Dale_units_280621.mat
+        end
+ if(true)   
     fig_SWI_fluxO2 = figure;
         m_proj('Robinson','longitudes',[-180 179.99], ...
             'latitudes',[-90 90]);
@@ -579,8 +653,9 @@ if(plot_SWI_fluxes)
         caxis(limits)
         xlabel('Longitude')
         ylabel('Latitude')
-        print(fig_SWI_fluxO2,'-depsc2', ['./plots/0504_ForKiel_Lee_a_PKfilled/SWI_flux_O2_' str_date '.eps']);    
-    
+        print(fig_SWI_fluxO2,'-depsc2', ['./plots/0107_For_Goldschmidt_por08_gamma50/SWI_flux_O2_' str_date '.eps']);    
+         print(fig_SWI_fluxO2,'-dpng', ['./plots/0107_For_Goldschmidt_por08_gamma50/SWI_flux_O2_' str_date ]);    
+   
 
     
     fig_SWI_fluxNO3 = figure;
@@ -600,7 +675,8 @@ if(plot_SWI_fluxes)
         caxis(limits)
         xlabel('Longitude')
         ylabel('Latitude')
-        print(fig_SWI_fluxNO3,'-depsc2', ['./plots/0504_ForKiel_Lee_a_PKfilled/SWI_flux_NO3_' str_date '.eps']);    
+        print(fig_SWI_fluxNO3,'-depsc2', ['./plots/0107_For_Goldschmidt_por08_gamma50/SWI_flux_NO3_' str_date '.eps']);    
+        print(fig_SWI_fluxNO3,'-dpng', ['./plots/0107_For_Goldschmidt_por08_gamma50/SWI_flux_NO3_' str_date ]);    
     
     
     fig_SWI_fluxNH4 = figure;
@@ -621,7 +697,8 @@ if(plot_SWI_fluxes)
        caxis(limits)
         xlabel('Longitude')
         ylabel('Latitude')
-        print(fig_SWI_fluxNH4,'-depsc2', ['./plots/0504_ForKiel_Lee_a_PKfilled/SWI_flux_NH4_' str_date '.eps']);    
+        print(fig_SWI_fluxNH4,'-depsc2', ['./plots/0107_For_Goldschmidt_por08_gamma50/SWI_flux_NH4_' str_date '.eps']);    
+        print(fig_SWI_fluxNH4,'-dpng', ['./plots/0107_For_Goldschmidt_por08_gamma50/SWI_flux_NH4_' str_date ]);    
 
     % units as Dale ea map Fig. 6a+c log(mmol m-2 yr-1)
     Flux_Fe2_logmmol = log10(Flux_Fe2_Dale_units*365*10^(-3));
@@ -645,7 +722,8 @@ if(plot_SWI_fluxes)
        caxis(limits)
         xlabel('Longitude')
         ylabel('Latitude')
-        print(fig_Fe2_efflux,'-depsc2', ['./plots/0504_ForKiel_Lee_a_PKfilled/SWI_flux_Fe2_logmmolm2yr_' str_date '.eps']);    
+        print(fig_Fe2_efflux,'-depsc2', ['./plots/0107_For_Goldschmidt_por08_gamma50/SWI_flux_Fe2_logmmolm2yr_' str_date '.eps']);    
+        print(fig_Fe2_efflux,'-dpng', ['./plots/0107_For_Goldschmidt_por08_gamma50/SWI_flux_Fe2_logmmolm2yr_' str_date ]);    
         
    
     
@@ -670,8 +748,9 @@ if(plot_SWI_fluxes)
        caxis(limits)
         xlabel('Longitude')
         ylabel('Latitude')
-        print(fig_Fe2_efflux_myunits,'-depsc2', ['./plots/0504_ForKiel_Lee_a_PKfilled/SWI_flux_Fe2_logmumolcm2yr_' str_date '.eps']);    
-    
+        print(fig_Fe2_efflux_myunits,'-depsc2', ['./plots/0107_For_Goldschmidt_por08_gamma50/SWI_flux_Fe2_logmumolcm2yr_' str_date '.eps']);    
+         print(fig_Fe2_efflux_myunits,'-dpng', ['./plots/0107_For_Goldschmidt_por08_gamma50/SWI_flux_Fe2_logmumolcm2yr_' str_date ]);    
+   
 end
         
     fig_SWI_fluxSO4 = figure;
@@ -691,7 +770,8 @@ end
         caxis(limits)
         xlabel('Longitude')
         ylabel('Latitude')
-        print(fig_SWI_fluxSO4,'-depsc2', ['./plots/0504_ForKiel_Lee_a_PKfilled/SWI_flux_SO4_' str_date '.eps']);    
+        print(fig_SWI_fluxSO4,'-depsc2', ['./plots/0107_For_Goldschmidt_por08_gamma50/SWI_flux_SO4_' str_date '.eps']);    
+        print(fig_SWI_fluxSO4,'-dpng', ['./plots/0107_For_Goldschmidt_por08_gamma50/SWI_flux_SO4_' str_date ]);    
         
       
 
@@ -713,7 +793,8 @@ end
        caxis(limits)
         xlabel('Longitude')
         ylabel('Latitude')
-        print(fig_SWI_fluxH2S,'-depsc2', ['./plots/0504_ForKiel_Lee_a_PKfilled/SWI_flux_H2S_' str_date '.eps']);    
+        print(fig_SWI_fluxH2S,'-depsc2', ['./plots/0107_For_Goldschmidt_por08_gamma50/SWI_flux_H2S_' str_date '.eps']);    
+        print(fig_SWI_fluxH2S,'-dpng', ['./plots/0107_For_Goldschmidt_por08_gamma50/SWI_flux_H2S_' str_date ]);    
 
  
 
@@ -730,12 +811,12 @@ if(calc_plot_hyp_remin_rates)
 %     load output/0505_Lee_PK_filled_a1to10_GMDandSAIntConst_1degree_Inverse_Flux_Fe2_Dale_units_050521.mat
 %     load output/0505_Lee_PK_filled_a1to10_GMDandSAIntConst_1degree_Inverse_Penetration_out_050521.mat
     
-    % Gamma = 0.5
-    load output/0605_Lee_PK_filled_a1to10_GMDandSAIntConst_1degree_Inverse_GAMMA05_Cox_rate_out_060521.mat
-    load output/0605_Lee_PK_filled_a1to10_GMDandSAIntConst_1degree_Inverse_GAMMA05_dxdy_060521.mat
-    load output/0605_Lee_PK_filled_a1to10_GMDandSAIntConst_1degree_Inverse_GAMMA05_SWI_fluxes_060521.mat
-    load output/0605_Lee_PK_filled_a1to10_GMDandSAIntConst_1degree_Inverse_GAMMA05_Flux_Fe2_Dale_units_060521.mat
-    load output/0605_Lee_PK_filled_a1to10_GMDandSAIntConst_1degree_Inverse_GAMMA05_Penetration_out_060521.mat
+%     % Gamma = 0.5
+%     load output/0605_Lee_PK_filled_a1to10_GMDandSAIntConst_1degree_Inverse_GAMMA05_Cox_rate_out_060521.mat
+%     load output/0605_Lee_PK_filled_a1to10_GMDandSAIntConst_1degree_Inverse_GAMMA05_dxdy_060521.mat
+%     load output/0605_Lee_PK_filled_a1to10_GMDandSAIntConst_1degree_Inverse_GAMMA05_SWI_fluxes_060521.mat
+%     load output/0605_Lee_PK_filled_a1to10_GMDandSAIntConst_1degree_Inverse_GAMMA05_Flux_Fe2_Dale_units_060521.mat
+%     load output/0605_Lee_PK_filled_a1to10_GMDandSAIntConst_1degree_Inverse_GAMMA05_Penetration_out_060521.mat
     
     hypsometry_depths = [0 50 150 350 750 1500 2750 4250 10000];
     %% calculate area of depth regimes
@@ -747,7 +828,7 @@ if(calc_plot_hyp_remin_rates)
     
     
     %     % oxidation rates in mmol m-2 yr-1
-    %     load output/Cox_rate_out_0302_50cm_100G_Arndt_rescales_1-10_2degree_030221.mat
+    %     load output/Cox_rate_out_0302_50cm_100G_Arndt_rescales_1-10_2degree_280621.mat
     Cox_aerobic = Cox_rate_out.Cox_aerobic;
     Cox_denitr=Cox_rate_out.Cox_denitr;
     Cox_FeIII= Cox_rate_out.Cox_FeIII;
@@ -873,12 +954,12 @@ if(calc_plot_hyp_remin_rates)
     box on;
     hold on;
     plot(Hypsometry_oxid_rates_sulfate_mumolpercm2,-hypsometry_meanDepth/1000,'ko-','MarkerFaceColor','k','MarkerSize',12);
-    xlim([0.0 200.0])
+    xlim([0.0 300.0])
     ylim([-5.0 0.0])
     xlabel('Sulfate reduction')
     ylabel('SFD  (km)');
     
-  	print(fig_ox_rates,'-depsc2', ['./plots/0504_ForKiel_Lee_a_PKfilled/Hypsometry_remin_rates_GAMMA50_' str_date '.eps']);    
+  	print(fig_ox_rates,'-depsc2', ['./plots/0107_For_Goldschmidt_por08_gamma50/Hypsometry_remin_rates_GAMMA50_' str_date '.eps']);    
     
     
     %% plot SWI-fluxes
@@ -891,7 +972,7 @@ if(calc_plot_hyp_remin_rates)
     box on;
     hold on;
     plot(Hypsometry_SWI_flux_O2,-hypsometry_meanDepth/1000,'ko-','MarkerFaceColor','k','MarkerSize',12);
-    xlim([0.0 400])
+    xlim([0.0 450])
     ylim([-5.0 0.0])
     %    xlabel('Aerobic (\mumol cm^{-2} yr^{-1})')
     xlabel('O_2')
@@ -902,7 +983,7 @@ if(calc_plot_hyp_remin_rates)
     hold on;
     plot(Hypsometry_SWI_flux_NO3,-hypsometry_meanDepth/1000,'ko-','MarkerFaceColor','k','MarkerSize',12);
     xline(0,'k--','LineWidth',4);
-    xlim([-3.5 3.5])
+    xlim([-6.5 6.5])
     ylim([-5.0 0.0])
     xlabel('NO_3')
     %    ylabel('SFD  (km)');
@@ -911,7 +992,7 @@ if(calc_plot_hyp_remin_rates)
     box on;
     hold on;
     plot(Hypsometry_SWI_flux_SO4,-hypsometry_meanDepth/1000,'ko-','MarkerFaceColor','k','MarkerSize',12);
-    xlim([0.0 10.0])
+    xlim([0.0 100.0])
     ylim([-5.0 0.0])
     xlabel('SO_4')
     %    ylabel('SFD  (km)');
@@ -920,7 +1001,7 @@ if(calc_plot_hyp_remin_rates)
     box on;
     hold on;
     plot(Hypsometry_SWI_flux_NH4,-hypsometry_meanDepth/1000,'ko-','MarkerFaceColor','k','MarkerSize',12);
-    xlim([-1.0 0.0])
+    xlim([-10.0 0.0])
     ylim([-5.0 0.0])
     xlabel('NH_4')
     ylabel('SFD  (km)');
@@ -938,12 +1019,12 @@ if(calc_plot_hyp_remin_rates)
     box on;
     hold on;
     plot(Hypsometry_SWI_flux_H2S,-hypsometry_meanDepth/1000,'ko-','MarkerFaceColor','k','MarkerSize',12);
-    xlim([-10.0 0.0])
+    xlim([-100.0 0.0])
     ylim([-5.0 0.0])
     xlabel('H_2S')
     %    ylabel('SFD  (km)');
     
-        print(fig_SWI_fluxes,'-depsc2', ['./plots/0504_ForKiel_Lee_a_PKfilled/Hypsometry_SWI_fluxes_GAMMA50_' str_date '.eps']);    
+        print(fig_SWI_fluxes,'-depsc2', ['./plots/0107_For_Goldschmidt_por08_gamma50/Hypsometry_SWI_fluxes_GAMMA50_' str_date '.eps']);    
     
     
     %% plot penetration depths
@@ -962,13 +1043,15 @@ if(calc_plot_hyp_remin_rates)
     lgd = legend('zO_2','zNO_3');
 %    lgd = legend('zO_2','zNO_3', 'zFeIII');
     lgd.FontSize = 20;
-            print(fig_penetration_depths,'-depsc2', ['./plots/0504_ForKiel_Lee_a_PKfilled/Hypsometry_PenetrationDepths_GAMMA50_' str_date '.eps']);    
+            print(fig_penetration_depths,'-depsc2', ['./plots/0107_For_Goldschmidt_por08_gamma50/Hypsometry_PenetrationDepths_GAMMA50_' str_date '.eps']);    
 
 end
 
 
 if(plot_BC)
-    calc_res = 1;
+    load_data = true;
+    if(load_data)
+    calc_res = 2;
     switch calc_res
         case 1
             load './data/O2_BW_WOA2018_hr_updated.mat'                  	% BW  O2 [muM = 10^-6 mol/kg]  -- need to convert into mol/cm^3 , i.e. *10^-3
@@ -978,31 +1061,196 @@ if(plot_BC)
             
             
         case 2
-            load './data/BC_1degrees/O2_BW_WOA2018_01_updated.mat'                  	% BW  O2 [muM = 10^-6 mol/kg]  -- need to convert into mol/cm^3 , i.e. *10^-3
-            O2_BW_WOA2018_hr_updated = O2_BW_WOA2018_01_updated;
+            load('./data/01_plot_BC_April_21/BC_1degree/O2_BW_WOA2018_lr_aligned.mat'); 
+            O2_BW_WOA2018_hr_updated = O2_BW_WOA2018_lr_aligned;
+            load('./data/01_plot_BC_April_21/BC_1degree/NO3_BW_lr_aligned.mat');                             % BW  NO3 [muM = 10^-6 mol/kg]  -- need to convert into mol/cm^3 , i.e. *10^-3
+            NO3_BW_hr_updated = NO3_BW_lr_aligned;
+            load('./data/01_plot_BC_April_21/BC_1degree/FluxFe_total_Burw_BW_aligned.mat'); % Total FeOOH settling-flux [mumol/(cm2 yr)] -- just 16.67% of this is available for OM-degradation; used por=0.85 to calculate it
+            FluxFe_total_Burw_BW_hr_updated = FluxFe_total_Burw_BW_01_por85_aligned/365*100^2;
+            load('./data/01_plot_BC_April_21/BC_1degree/Tmp_BW_lr_aligned.mat');   % BW temperature [°C]
+            Tmp_BW_hr_updated = Tmp_BW_lr_aligned;
+            load('./data/01_plot_BC_April_21/BC_1degree/a_lr_aligned_PK_filled_in_a1to10.mat');                    %  Parameter a [yrs]  (the apparent initial age of the initial organic matter mixture ) as fct of sedimentation rate dependent formulation for a (Arndt et al., 2013)
+            a_hr_updated = Parameter_a_total_PKsedrate1to10;
+
             degree = '1degree';
         case 3
             
     end
+    end
     
-    fig_BWO2 = figure;
-    %set(gca,'FontSize',30)
-    pcolor(long, lat, O2_BW_WOA2018_hr_updated);
-    hold on;
-    % set(gca,'Color',lightGrey2)
-    % set(gcf,'inverthardcopy','off');
-    title('BW O_2 (\mumol kg-1)')
-    shading interp;
-    %contour(long, lat, toc,'LineColor','k')
-    colorbar ('horizontal')
-    colormap(parula)
-    %  caxis([-10.0 0.0])
-    xlabel('Longitude')
-    ylabel('Latitude')
-    print(fig_BWO2,'-depsc2', ['./plots/BW_O2_' degree '_' str_date '.eps']);
-    
-    
-    
+if false
+%  plot THE TOC SWI concentration
+fig_SWI_fluxO2 = figure;
+m_proj('Robinson','longitudes',[-180 179.99], ...
+    'latitudes',[-90 90]);
+hold on;
+levels = [0:0.01:5.0];
+limits = [0 3.0];
+[C,h] = m_contourf(long, lat,  toc_in, levels);
+set(h,'LineColor','none')
+title('TOC (wt%)') % -- Lee et al. (2019)')
+m_coast('linewidth',1,'color','k');
+m_coast('patch',[.7 .7 .7]);
+m_grid('fontsize',8);
+colorbar ('horizontal')
+colormap(parula)
+caxis(limits)
+xlabel('Longitude')
+ylabel('Latitude')
+%        print(fig_SWI_fluxO2,'-depsc2', ['./plots/SWI_Lee_toc_lr_weighted_SWI_PK_filled_a1to10_por085_' str_date '.eps']);
+print(fig_SWI_fluxO2,'-dpng', ['./plots/SWI_Lee_toc_lr_weighted_SWI_PK_filled_a1to10_por085_' str_date '.png']);
+
+%  plot water depth
+fig_depth = figure;
+m_proj('Robinson','longitudes',[-180 179.99], ...
+    'latitudes',[-90 90]);
+hold on;
+levels = [0:0.05:6.0];
+limits = [0 5.0];
+[C,h] = m_contourf(long, lat,  water_depth_updated/1000, levels);
+set(h,'LineColor','none')
+title('Water Depth (km)') % -- Lee et al. (2019)')
+m_coast('linewidth',1,'color','k');
+m_coast('patch',[.7 .7 .7]);
+m_grid('fontsize',8);
+colorbar ('horizontal')
+colormap(flipud(parula))
+caxis(limits)
+xlabel('Longitude')
+ylabel('Latitude')
+%        print(fig_SWI_fluxO2,'-depsc2', ['./plots/SWI_Lee_toc_lr_weighted_SWI_PK_filled_a1to10_por085_' str_date '.eps']);
+print(fig_depth,'-dpng', ['./plots/SWI_Depth_' str_date '.png']);
+ 
+
+%  plot sedimentation rate
+fig_sedrate = figure;
+m_proj('Robinson','longitudes',[-180 179.99], ...
+    'latitudes',[-90 90]);
+hold on;
+levels = [0:0.001:0.13];
+limits = [0 0.12];
+[C,h] = m_contourf(long, lat,  sed_holo_hr_updated, levels);
+set(h,'LineColor','none')
+title('Sedimentation rate (cm/yr)') % -- Lee et al. (2019)')
+m_coast('linewidth',1,'color','k');
+m_coast('patch',[.7 .7 .7]);
+m_grid('fontsize',8);
+colorbar ('horizontal')
+colormap((parula))
+caxis(limits)
+xlabel('Longitude')
+ylabel('Latitude')
+%        print(fig_SWI_fluxO2,'-depsc2', ['./plots/SWI_Lee_toc_lr_weighted_SWI_PK_filled_a1to10_por085_' str_date '.eps']);
+print(fig_sedrate,'-dpng', ['./plots/SWI_SedRate_' str_date '.png']);
+
+
+%  plot BW Oxygen
+fig_O2 = figure;
+m_proj('Robinson','longitudes',[-180 179.99], ...
+    'latitudes',[-90 90]);
+hold on;
+levels = [0:10:400];
+limits = [0 350];
+[C,h] = m_contourf(long, lat,  O2_BW_WOA2018_hr_updated, levels);
+set(h,'LineColor','none')
+title('Oxygen (\muM)') % -- Lee et al. (2019)')
+m_coast('linewidth',1,'color','k');
+m_coast('patch',[.7 .7 .7]);
+m_grid('fontsize',8);
+colorbar ('horizontal')
+colormap((parula))
+caxis(limits)
+xlabel('Longitude')
+ylabel('Latitude')
+%        print(fig_SWI_fluxO2,'-depsc2', ['./plots/SWI_Lee_toc_lr_weighted_SWI_PK_filled_a1to10_por085_' str_date '.eps']);
+print(fig_O2,'-dpng', ['./plots/SWI_O2_' str_date '.png']);
+
+%  plot BW Nitrate
+fig_NO3 = figure;
+m_proj('Robinson','longitudes',[-180 179.99], ...
+    'latitudes',[-90 90]);
+hold on;
+levels = [0:1:60];
+limits = [0 50];
+[C,h] = m_contourf(long, lat,  NO3_BW_hr_updated, levels);
+set(h,'LineColor','none')
+title('Nitrate (\muM)') % -- Lee et al. (2019)')
+m_coast('linewidth',1,'color','k');
+m_coast('patch',[.7 .7 .7]);
+m_grid('fontsize',8);
+colorbar ('horizontal')
+colormap((parula))
+caxis(limits)
+xlabel('Longitude')
+ylabel('Latitude')
+%        print(fig_SWI_fluxO2,'-depsc2', ['./plots/SWI_Lee_toc_lr_weighted_SWI_PK_filled_a1to10_por085_' str_date '.eps']);
+print(fig_NO3,'-dpng', ['./plots/SWI_NO3_' str_date '.png']);
+
+%  plot BW Fe(OH)3 flux
+fig_FE3 = figure;
+m_proj('Robinson','longitudes',[-180 179.99], ...
+    'latitudes',[-90 90]);
+hold on;
+levels = [0:10:900];
+limits = [0 800];
+[C,h] = m_contourf(long, lat,  FluxFe_total_Burw_BW_hr_updated, levels);
+set(h,'LineColor','none')
+title('Total Fe(OH)_3 flux (\mumol/(m^2 d)') % -- Lee et al. (2019)')
+m_coast('linewidth',1,'color','k');
+m_coast('patch',[.7 .7 .7]);
+m_grid('fontsize',8);
+colorbar ('horizontal')
+colormap((parula))
+caxis(limits)
+xlabel('Longitude')
+ylabel('Latitude')
+%        print(fig_SWI_fluxO2,'-depsc2', ['./plots/SWI_Lee_toc_lr_weighted_SWI_PK_filled_a1to10_por085_' str_date '.eps']);
+print(fig_Fe3,'-dpng', ['./plots/SWI_Fe3_flux_' str_date '.png']);
+
+%  plot BW temperature
+fig_Tmp = figure;
+m_proj('Robinson','longitudes',[-180 179.99], ...
+    'latitudes',[-90 90]);
+hold on;
+levels = [-5:0.5:31];
+limits = [0 30];
+[C,h] = m_contourf(long, lat,  Tmp_BW_hr_updated, levels);
+set(h,'LineColor','none')
+title('Temperature ({}^\circC)') % -- Lee et al. (2019)')
+m_coast('linewidth',1,'color','k');
+m_coast('patch',[.7 .7 .7]);
+m_grid('fontsize',8);
+colorbar ('horizontal')
+colormap((parula))
+caxis(limits)
+xlabel('Longitude')
+ylabel('Latitude')
+%        print(fig_SWI_fluxO2,'-depsc2', ['./plots/SWI_Lee_toc_lr_weighted_SWI_PK_filled_a1to10_por085_' str_date '.eps']);
+print(fig_Tmp,'-dpng', ['./plots/SWI_Temp_' str_date '.png']);
+
+end
+
+%  plot reactivity
+fig_React = figure;
+m_proj('Robinson','longitudes',[-180 179.99], ...
+    'latitudes',[-90 90]);
+hold on;
+levels = [-0.5:0.01:2.5];
+limits = [0 1.8];
+[C,h] = m_contourf(long, lat,  log10(a_hr_updated), levels);
+set(h,'LineColor','none')
+title('OM reactivity (yr^{-1})') % -- Lee et al. (2019)')
+m_coast('linewidth',1,'color','k');
+m_coast('patch',[.7 .7 .7]);
+m_grid('fontsize',8);
+colorbar ('horizontal')
+colormap((parula))
+caxis(limits)
+xlabel('Longitude')
+ylabel('Latitude')
+%        print(fig_SWI_fluxO2,'-depsc2', ['./plots/SWI_Lee_toc_lr_weighted_SWI_PK_filled_a1to10_por085_' str_date '.eps']);
+print(fig_React,'-dpng', ['./plots/SWI_OM_Reactivity_' str_date '_1.8Limit.png']);
+
 end
 
 %%%%% Not needed

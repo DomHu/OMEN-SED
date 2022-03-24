@@ -37,7 +37,7 @@ classdef benthic_test
             swi.IntConst_GMD= true;         % true A1, A2 as in GMD; false: use Sandra's calculation
             
             swi.Nitrogen=true;                                  % calculate N (true/false)
-            swi.Iron=false;                                      % calculate Fe (true/false)
+            swi.Iron=true;                                      % calculate Fe (true/false)
             
             % for 2G-model
             swi.C01_nonbio= 0.7*1e-2/12*bsd.rho_sed;            % TOC concentration at SWI (wt%) -> (mol/cm^3 solid phase)
@@ -49,7 +49,7 @@ classdef benthic_test
             
             % for nG-model
             swi.nG = 100;
-            swi.p_a = 10.0;
+            swi.p_a = 1.0;
             swi.p_nu = 0.125;
             swi.TOCwt_SWI = 3.0;
             swi.C0_nonbio = swi.TOCwt_SWI * 1e-2/12*bsd.rho_sed;                 % TOC concentration at SWI (wt%) -> (mol/cm^3 bulk phase)
@@ -144,7 +144,7 @@ classdef benthic_test
             % set date-time or string going into plot function
             str_date = [exp_name, num2str(res.swi.nG) 'G_a=' num2str(res.swi.p_a) '_nu=' num2str(res.swi.p_nu) '_O20_' num2str(res.swi.O20)];
             if(swi.plot_fig)
-                benthic_test.plot_column(res, false, swi, str_date)
+%                benthic_test.plot_column(res, false, swi, str_date)
                 benthic_test.plot_TOC(res, false, swi, str_date)
             end
             % calculate depth integrated OM degradation rates (this is
@@ -629,7 +629,7 @@ classdef benthic_test
                         
                     else        % valid BC: run the model
                         
-                        
+
                         rho_sed_loc = 2.5;
                         swi.C0_nonbio = toc_in(x,y)*1e-2/12*rho_sed_loc;   % (wt%) -> (mol/cm^3 solid phase)
                         swi.p_a = a_hr_updated(x,y);
@@ -831,12 +831,13 @@ classdef benthic_test
         end
         
         
-        function [Cox_rate_out, Penetration_out, Flux_Fe2_Dale_units] = run_OMEN_RCM_testDale_POC()
+        function [Cox_rate_out, Penetration_out, Flux_Fe2_Dale_units] = run_OMEN_RCM_testDale_POC(ExpName)
             % run OMEN-SED with default SWI conditions as in default_swi()
-            clear all
+
             swi = benthic_test.default_swi();
             swi.TwoG_OM_model = false;
-            
+            swi.Test_Dale = true;
+            swi.Test_Dale_14G = true;
             
             Fe3_HR_frac = 0.1667;                                           % 16.67% of total FeOOH-influx is HR and thus available for DIR (See his Tab. 2, footnote d)
             Flux_FeIII0_in = Fe3_HR_frac*1110.0E-006*365/100^2;           % Dale 1110 mol/(m^2 day)   -->  mol/(cm^2 yr):     *365/100^2
@@ -853,11 +854,12 @@ classdef benthic_test
                 if(swi.Test_Dale_14G)
                     swi.nG = 14;
                 end
-                swi.p_a = 0.1;
+                swi.p_a = 10.0;
                 swi.p_nu = 0.125;
                 
             end
             
+            swi.sed_column_depth = 30;
             swi.POC_flux = [0.5 1 2 4 6 8 10 12 14 16];
             swi.flux = true;
             O20 = [1e-9 2e-9 5e-9 10e-9 15e-9 25e-9 50e-9 100e-9 200e-9];
@@ -938,7 +940,7 @@ classdef benthic_test
             end
             
             %% plot output
-            benthic_test.plot_Fe_SA(swi.POC_flux, O20, Cox_rate_out, Penetration_out, Flux_Fe2_Dale_units, swi.nG)
+            benthic_test.plot_Fe_SA(swi.POC_flux, O20, Cox_rate_out, Penetration_out, Flux_Fe2_Dale_units, swi.nG, swi.sed_column_depth, swi.p_a, ExpName)
             
             
         end
@@ -955,18 +957,36 @@ classdef benthic_test
             end
             
             if(swi.BC_wdepth_flag)
-                res.bsd = benthic_main(ncl, swi.BC_wdepth);   % specify 350m water-depth
+                if(swi.BC_wdepth<=200) % change porosity for shelfs, i.e. <200m
+                    por_shelf = 0.80;
+                	res.bsd = benthic_main(ncl, swi.BC_wdepth, por_shelf);   % specify 350m water-depth
+                else
+                    res.bsd = benthic_main(ncl, swi.BC_wdepth);   % specify 350m water-depth
+                end
                 res.bsd.zinf = swi.sed_column_depth;
+                
+
             else
                 res.bsd = benthic_main(ncl);
             end
             res.bsd.usescalarcode = ncl==1;
             
             if(swi.BC_sed_rate_flag)
-                res.bsd.w = swi.BC_sed_rate;
+                res.bsd.w = swi.BC_sed_rate;               
                 %                 if(res.bsd.w>0.1)
                 %                 res.bsd.w = 0.0005;    % To compare with Dale et al. (2015)
                 %                 end
+            end
+            
+            if(swi.Test_Dale)
+               % change bioturbation coefficient (and zbio) as in Dale et al. (2015)
+               a = 20;  % μM
+               b = 12;  % μM
+               O2BW = swi.O20*10^9;      %  μM
+               f = 0.5+0.5.*erf((O2BW-a)/b);               
+               res.bsd.Dbio = 23.0 * f;
+               res.bsd.zbio = 7.0 * f;
+               
             end
             
             if nargin < 2 || isempty(swi)
@@ -1318,13 +1338,26 @@ classdef benthic_test
             
         end
         
-        function plot_Fe_SA(POC_flux, O20, Cox_rate_out, Penetration_out, Flux_Fe2_Dale_units, nG)
+        function plot_Fe_SA(POC_flux, O20, Cox_rate_out, Penetration_out, Flux_Fe2_Dale_units, nG, column_depth, a_param, ExpName)
             %% plot various results for the Fe analysis
             
             str_date = datestr(now,'ddmmyy');
+            vs_Cox = true;
+            plot_effluxes = false;
             
-            exp_name = '30cm_with_SMIsink';
+            if(vs_Cox)
+                plot_name = '_vs_Cox';
+                txt_xLabel = '[Cox] (mmol m^{-2} d^{-1})';
+            else                
+                plot_name = '_vs_POCflx';
+                txt_xLabel = 'POCflx (mmol m^{-2} d^{-1})';
+                % make a matrix from POC-influx for plotting
+                POC_tr= POC_flux';
+                POCflx_matrix = repmat(POC_tr,1,length(O20));
+
+            end
             
+            if(plot_effluxes)
             %% plot FFe efflux
             x_axis = [0 14];
             y_axis = [0 200];
@@ -1342,7 +1375,7 @@ classdef benthic_test
             ylabel('JDFe (\mumol m^{-2} d^{-1})');
             xlabel('[O_2]_{BW} (\muM)');
             
-            print(fig1, '-depsc2', ['95_Flux_JFFe2_vs_O2_OMEN_' num2str(nG) 'G_' str_date '_' exp_name '.eps']);
+            print(fig1, '-depsc2', ['95_Flux_JFFe2_vs_O2_OMEN_' num2str(nG) 'G_' num2str(a_param) 'a_' num2str(column_depth) 'cm_' str_date '.eps']);
             
             % plot FFe2 vs Cox
             fig2 = figure('Renderer', 'painters', 'Position', [10 10 600 300]);
@@ -1351,14 +1384,19 @@ classdef benthic_test
             color = parula(length(O20));
             hold on
             for j=1:length(O20)
-                plot(Cox_rate_out.Cox_total(:,j), Flux_Fe2_Dale_units(:,j),'x-','Color',color(j,:))
+                if(vs_Cox)
+                    plot(Cox_rate_out.Cox_total(:,j), Flux_Fe2_Dale_units(:,j),'x-','Color',color(j,:))
+                else
+                    plot(POCflx_matrix(:,j), Flux_Fe2_Dale_units(:,j),'x-','Color',color(j,:))
+                end
             end
-            xlim(x_axis)
+%             xlim(x_axis)
             %            ylim(y_axis)
             ylabel('JDFe (\mumol m^{-2} d^{-1})');
-            xlabel('[Cox] (mmol m^{-2} d^{-1})');
+            xlabel(txt_xLabel);
             
-            print(fig2, '-depsc2', ['95_Flux_JFFe2_vs_Cox_' num2str(nG) 'G_' str_date '_' exp_name '.eps']);
+            print(fig2, '-depsc2', ['95_Flux_JFFe2' plot_name '_' num2str(nG) 'G_' num2str(a_param) 'a_' num2str(column_depth) 'cm_' str_date '.eps']);
+            end
             
             %% Plot fraction of metabolic pathways
             y_axis = [0 100];
@@ -1370,13 +1408,17 @@ classdef benthic_test
             color = parula(length(O20));
             hold on
             for j=1:length(O20)
-                plot(Cox_rate_out.Cox_total(:,j), Cox_rate_out.Cox_aerobic(:,j)./Cox_rate_out.Cox_total(:,j)*100,'x-','Color',color(j,:))
+                if(vs_Cox)
+                    plot(Cox_rate_out.Cox_total(:,j), Cox_rate_out.Cox_aerobic(:,j)./Cox_rate_out.Cox_total(:,j)*100,'x-','Color',color(j,:))
+                else
+                    plot(POCflx_matrix(:,j), Cox_rate_out.Cox_aerobic(:,j)./Cox_rate_out.Cox_total(:,j)*100,'x-','Color',color(j,:))
+                end
             end
             ylabel('Fract. of aerobic-reduction (%)');
-            xlabel('[Cox] (mmol m^{-2} d^{-1})');
+            xlabel(txt_xLabel);
             %             xlim(x_axis)
             ylim(y_axis)
-            print(fig3, '-depsc2', ['96_Flux_Frac_aerobic_red_vs_Cox_' num2str(nG) 'G_' str_date '_' exp_name '.eps']);
+            print(fig3, '-depsc2', ['Flux_Frac_aerobic_red' plot_name '_' num2str(nG) 'G_' num2str(a_param) 'a_' num2str(column_depth) 'cm_' ExpName , '_' str_date  '.eps']);
             
             % plot fraction Fe-reduction vs Cox
             % plot FFe2 vs Cox
@@ -1386,13 +1428,17 @@ classdef benthic_test
             color = parula(length(O20));
             hold on
             for j=1:length(O20)
-                plot(Cox_rate_out.Cox_total(:,j), Cox_rate_out.Cox_denitr(:,j)./Cox_rate_out.Cox_total(:,j)*100,'x-','Color',color(j,:))
+                if(vs_Cox)
+                    plot(Cox_rate_out.Cox_total(:,j), Cox_rate_out.Cox_denitr(:,j)./Cox_rate_out.Cox_total(:,j)*100,'x-','Color',color(j,:))
+                else
+                    plot(POCflx_matrix(:,j), Cox_rate_out.Cox_denitr(:,j)./Cox_rate_out.Cox_total(:,j)*100,'x-','Color',color(j,:))
+                end
             end
             ylabel('Fract. of denitrification (%)');
-            xlabel('[Cox] (mmol m^{-2} d^{-1})');
+            xlabel(txt_xLabel);
             %             xlim(x_axis)
             ylim(y_axis)
-            print(fig4, '-depsc2', ['96_Flux_Frac_denitrif_vs_Cox_' num2str(nG) 'G_' str_date '_' exp_name '.eps']);
+            print(fig4, '-depsc2', ['Flux_Frac_denitrif' plot_name '_' num2str(nG) 'G_'  num2str(a_param) 'a_' num2str(column_depth) 'cm_' ExpName , '_' str_date '.eps']);
             
             % plot fraction Fe-reduction vs Cox
             fig5 = figure('Renderer', 'painters', 'Position', [10 10 600 300]);
@@ -1401,13 +1447,17 @@ classdef benthic_test
             color = parula(length(O20));
             hold on
             for j=1:length(O20)
-                plot(Cox_rate_out.Cox_total(:,j), Cox_rate_out.Cox_FeIII(:,j)./Cox_rate_out.Cox_total(:,j)*100,'x-','Color',color(j,:))
+                if(vs_Cox)
+                    plot(Cox_rate_out.Cox_total(:,j), Cox_rate_out.Cox_FeIII(:,j)./Cox_rate_out.Cox_total(:,j)*100,'x-','Color',color(j,:))
+                else
+                    plot(POCflx_matrix(:,j), Cox_rate_out.Cox_FeIII(:,j)./Cox_rate_out.Cox_total(:,j)*100,'x-','Color',color(j,:))
+                end
             end
             ylabel('Fract. of Fe-reduction (%)');
-            xlabel('[Cox] (mmol m^{-2} d^{-1})');
+            xlabel(txt_xLabel);
             %             xlim(x_axis)
             %            ylim([0 80])
-            print(fig5, '-depsc2', ['96_Flux_Frac_Fe2_red_vs_Cox_' num2str(nG) 'G_' str_date '_' exp_name '_zoom.eps']);
+            print(fig5, '-depsc2', ['Flux_Frac_Fe2_red' plot_name '_' num2str(nG) 'G_'  num2str(a_param) 'a_' num2str(column_depth) 'cm_' ExpName , '_' str_date '_zoom.eps']);
             
             % plot fraction Fe-reduction vs Cox
             % plot FFe2 vs Cox
@@ -1417,12 +1467,16 @@ classdef benthic_test
             color = parula(length(O20));
             hold on
             for j=1:length(O20)
-                plot(Cox_rate_out.Cox_total(:,j), Cox_rate_out.Cox_FeIII(:,j)./Cox_rate_out.Cox_total(:,j)*100,'x-','Color',color(j,:))
+                if(vs_Cox)
+                    plot(Cox_rate_out.Cox_total(:,j), Cox_rate_out.Cox_FeIII(:,j)./Cox_rate_out.Cox_total(:,j)*100,'x-','Color',color(j,:))
+                else
+                    plot(POCflx_matrix(:,j), Cox_rate_out.Cox_FeIII(:,j)./Cox_rate_out.Cox_total(:,j)*100,'x-','Color',color(j,:))
+                end
             end
             ylabel('Fract. of Fe-reduction (%)');
-            xlabel('[Cox] (mmol m^{-2} d^{-1})');
+            xlabel(txt_xLabel);
             ylim(y_axis)
-            print(fig51, '-depsc2', ['96_Flux_Frac_Fe2_red_vs_Cox_' num2str(nG) 'G_' str_date '_' exp_name '.eps']);
+            print(fig51, '-depsc2', ['Flux_Frac_Fe2_red' plot_name '_' num2str(nG) 'G_'  num2str(a_param) 'a_' num2str(column_depth) 'cm_' ExpName , '_' str_date  '.eps']);
             
             % plot fraction SO4-reduction vs Cox
             fig6 = figure('Renderer', 'painters', 'Position', [10 10 600 300]);
@@ -1431,17 +1485,22 @@ classdef benthic_test
             color = parula(length(O20));
             hold on
             for j=1:length(O20)
-                plot(Cox_rate_out.Cox_total(:,j), Cox_rate_out.Cox_sulfate(:,j)./Cox_rate_out.Cox_total(:,j)*100,'x-','Color',color(j,:))
+                if(vs_Cox)
+                    plot(Cox_rate_out.Cox_total(:,j), Cox_rate_out.Cox_sulfate(:,j)./Cox_rate_out.Cox_total(:,j)*100,'x-','Color',color(j,:))
+                else
+                    plot(POCflx_matrix(:,j), Cox_rate_out.Cox_sulfate(:,j)./Cox_rate_out.Cox_total(:,j)*100,'x-','Color',color(j,:))
+                end
             end
             ylabel('Fract. of SO_4-reduction (%)');
-            xlabel('[Cox] (mmol m^{-2} d^{-1})');
+            xlabel(txt_xLabel);
             ylim(y_axis)
             %           xlim(x_axis)
-            print(fig6, '-depsc2', ['96_Flux_Frac_SO4_red_vs_Cox_' num2str(nG) 'G_' str_date '_' exp_name '.eps']);
+            print(fig6, '-depsc2', ['Flux_Frac_SO4_red' plot_name '_' num2str(nG) 'G_'  num2str(a_param) 'a_' num2str(column_depth) 'cm_' ExpName , '_' str_date '.eps']);
             
         end
         
-                function plot_TOC_2G(res, debug, swi, str_date)
+        
+        function plot_TOC_2G(res, debug, swi, str_date)
             % plot single sediment column vs depth
             set(0,'defaultLineLineWidth', 2)
             set(0,'DefaultAxesFontSize',12)
@@ -2159,9 +2218,9 @@ classdef benthic_test
             set(0,'DefaultAxesFontSize',12)
             
             bsd = res.bsd;
-            zgrid = 0:0.1:bsd.zinf;
+            zgrid = 0:0.5:bsd.zinf;
             
-            %%% TOC
+            %% TOC
             for i=1:length(zgrid)
                 [C(i), C1(i,:)] = res.zTOC_RCM.calcC( zgrid(i), bsd, res.swi, res);
                 [Cflx(i), C1flx(i,:)] = res.zTOC_RCM.calcCflx( zgrid(i), bsd, res.swi, res);
@@ -2190,6 +2249,9 @@ classdef benthic_test
             ylabel('Depth (cm)')
             %            title('Total TOC (wt%)')
             print(fig_toc, '-depsc2', [str_date '_TOC_PROFILES.eps']);
+            
+            
+
             
         end
         
@@ -2306,8 +2368,45 @@ classdef benthic_test
                 end
                 Fnonbioi = F.* swi.FOM_total; % Dom was: 11.05.21: F.*( swi.C0_nonbio*(1-bsd.por)*bsd.w ); % NonBioturbated SWI
                 C0i = F.*swi.C0_nonbio;
+                
+                % plot Fractions vs log(k)
+                plot_fractions = false;
+                if(plot_fractions)
+                    benthic_test.plot_TOC_fractions(k, F)
+                end
             end
         end
+        
+        function plot_TOC_fractions(k, F)
+            
+            log_k = log10(k);
+            % color scale
+            n_frac = size(k,2);
+            color = parula(n_frac);
+
+%             for G = 1:swi.nG
+%                 plot(100*C1(:,G)*12/bsd.rho_sed, -zgrid,'Color',color(G,:))
+%             end
+           
+            fig_toc_fractions =figure;         
+
+            set(0,'defaultLineLineWidth', 2)
+            set(0,'DefaultAxesFontSize',12)
+            box on
+            hold on
+            for k = 1:n_frac
+            	b(k) = bar(log_k(k), F(k), 0.15, 'FaceColor',color(k,:));            
+            end
+            plot(log_k, F, 'k')
+            xlabel ('log(k)')
+            ylabel('Fraction of total OM')
+            %            title('Total TOC (wt%)')
+            print(fig_toc_fractions, '-depsc2', 'TOC_fractions.eps');
+            
+            
+
+            
+        end        
         
         function [k, C0i, Fnonbioi] = RCM_Dale_2015(bsd, swi)
             %% specify k and F speficically as in Dale ea. 2015 and use input flux to calculate non-bioturbated SWI-concentration of POC

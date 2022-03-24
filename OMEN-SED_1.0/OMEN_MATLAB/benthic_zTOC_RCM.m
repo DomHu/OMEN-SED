@@ -89,9 +89,11 @@ classdef benthic_zTOC_RCM < handle
             C_zbio=sum(rTOC_RCM.A1.* exp(rTOC_RCM.a1.*bsd.zbio) + rTOC_RCM.B1.*exp(rTOC_RCM.b1.*bsd.zbio),2);
             % if C_zbio <0  or C_zbio > TOC(SWI) -> problem, save NaN at
             % coordinates
-            if(C_zbio < 0.0 || C_zbio >= swi.C0_nonbio) 
-                warning('Matching at zbio fails!!!');
-                res.zbio_Matching_fails = true;
+            if(~swi.flux)  % Test this only if we have concentr. for TOC
+                if(C_zbio < 0.0 || C_zbio >= swi.C0_nonbio)
+                    warning('Matching at zbio fails!!!');
+                    res.zbio_Matching_fails = true;
+                end
             end
             debug_TOCprofile = false;
             if(debug_TOCprofile)
