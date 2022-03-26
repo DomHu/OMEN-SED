@@ -842,9 +842,11 @@ classdef benthic_test
             Fe3_HR_frac = 0.1667;                                           % 16.67% of total FeOOH-influx is HR and thus available for DIR (See his Tab. 2, footnote d)
             Flux_FeIII0_in = Fe3_HR_frac*1110.0E-006*365/100^2;           % Dale 1110 mol/(m^2 day)   -->  mol/(cm^2 yr):     *365/100^2
             
-            hypoxic_th = 63.0e-9;           % threshold for hypoxia after Dale et al. '15
-            Fe3_in_SMI_frac_oxic = 0.6;     % Fe3_HR used for Sulphide-Mediated Iron reduction under oxic BW (i.e. not available for DIR)
-            Fe3_in_SMI_frac_hypoxic = 0.3;  % Fe3_HR used for Sulphide-Mediated Iron reduction under hypoxic BW (i.e. not available for DIR)
+            hypoxic_th = 20.0e-9;           % weakly hypoxic threshold for hypoxia after Dale et al. '15
+            anoxic_th = 3.0e-9;           % weakly hypoxic threshold for hypoxia after Dale et al. '15
+            Fe3_in_SMI_frac_oxic = 0.6;     % Fe3_HR used for Sulphide-Mediated Iron reduction under oxic BW (i.e. not available for DIR)          
+            Fe3_in_SMI_frac_hypoxic = 0.28;  % Fe3_HR used for Sulphide-Mediated Iron reduction under hypoxic BW (i.e. not available for DIR)
+            Fe3_in_SMI_frac_anoxic = 0.23;  % Fe3_HR used for Sulphide-Mediated Iron reduction under hypoxic BW (i.e. not available for DIR)
             
             if(swi.Test_Dale)
                 swi.BC_wdepth_flag = true;
@@ -874,8 +876,10 @@ classdef benthic_test
                     swi.O20 = O20(j);
                     if(swi.O20 > hypoxic_th)
                         swi.Flux_FeIII0 = (1-Fe3_in_SMI_frac_oxic)*Flux_FeIII0_in;  % just reactivre part in mol/(cm2 yr)
+                    elseif(swi.O20 > anoxic_th)
+                        	swi.Flux_FeIII0 = (1-Fe3_in_SMI_frac_hypoxic)*Flux_FeIII0_in;  % just reactivre part in mol/(cm2 yr)
                     else
-                        swi.Flux_FeIII0 = (1-Fe3_in_SMI_frac_hypoxic)*Flux_FeIII0_in;  % just reactivre part in mol/(cm2 yr)
+                        swi.Flux_FeIII0 = (1-Fe3_in_SMI_frac_anoxic)*Flux_FeIII0_in;  % just reactivre part in mol/(cm2 yr)
                     end
                     
                     res=benthic_test.test_benthic(1,swi);
@@ -1366,20 +1370,22 @@ classdef benthic_test
             fig1 = figure('Renderer', 'painters', 'Position', [10 10 600 300]);
             set(0,'defaultLineLineWidth', 2)
             set(0,'DefaultAxesFontSize',12)
+            box on
             color = parula(length(POC_flux));
             hold on
             for i=1:length(POC_flux)
                 plot(O20, Flux_Fe2_Dale_units(i,:),'x-','Color',color(i,:))
             end
-            %            ylim(y_axis)
+            ylim(y_axis)
             ylabel('JDFe (\mumol m^{-2} d^{-1})');
             xlabel('[O_2]_{BW} (\muM)');
             
-            print(fig1, '-depsc2', ['95_Flux_JFFe2_vs_O2_OMEN_' num2str(nG) 'G_' num2str(a_param) 'a_' num2str(column_depth) 'cm_' str_date '.eps']);
+            print(fig1, '-depsc2', ['Flux_JFFe2_vs_O2_OMEN_' num2str(nG) 'G_' num2str(a_param) 'a_' num2str(column_depth) 'cm_' ExpName , '_' str_date '.eps']);
             
             % plot FFe2 vs Cox
             fig2 = figure('Renderer', 'painters', 'Position', [10 10 600 300]);
             set(0,'defaultLineLineWidth', 2)
+            box on
             set(0,'DefaultAxesFontSize',12)
             color = parula(length(O20));
             hold on
@@ -1391,11 +1397,11 @@ classdef benthic_test
                 end
             end
 %             xlim(x_axis)
-            %            ylim(y_axis)
+            ylim(y_axis)
             ylabel('JDFe (\mumol m^{-2} d^{-1})');
             xlabel(txt_xLabel);
             
-            print(fig2, '-depsc2', ['95_Flux_JFFe2' plot_name '_' num2str(nG) 'G_' num2str(a_param) 'a_' num2str(column_depth) 'cm_' str_date '.eps']);
+            print(fig2, '-depsc2', ['Flux_JFFe2' plot_name '_' num2str(nG) 'G_' num2str(a_param) 'a_' num2str(column_depth) 'cm_' ExpName , '_' str_date '.eps']);
             end
             
             %% Plot fraction of metabolic pathways
@@ -1405,6 +1411,7 @@ classdef benthic_test
             fig3 = figure('Renderer', 'painters', 'Position', [10 10 600 300]);
             set(0,'defaultLineLineWidth', 2)
             set(0,'DefaultAxesFontSize',12)
+            box on
             color = parula(length(O20));
             hold on
             for j=1:length(O20)
@@ -1418,11 +1425,12 @@ classdef benthic_test
             xlabel(txt_xLabel);
             %             xlim(x_axis)
             ylim(y_axis)
-            print(fig3, '-depsc2', ['Flux_Frac_aerobic_red' plot_name '_' num2str(nG) 'G_' num2str(a_param) 'a_' num2str(column_depth) 'cm_' ExpName , '_' str_date  '.eps']);
+            print(fig3, '-depsc2', ['Frac_aerobic_red' plot_name '_' num2str(nG) 'G_' num2str(a_param) 'a_' num2str(column_depth) 'cm_' ExpName , '_' str_date  '.eps']);
             
             % plot fraction Fe-reduction vs Cox
             % plot FFe2 vs Cox
             fig4 = figure('Renderer', 'painters', 'Position', [10 10 600 300]);
+            box on
             set(0,'defaultLineLineWidth', 2)
             set(0,'DefaultAxesFontSize',12)
             color = parula(length(O20));
@@ -1438,12 +1446,13 @@ classdef benthic_test
             xlabel(txt_xLabel);
             %             xlim(x_axis)
             ylim(y_axis)
-            print(fig4, '-depsc2', ['Flux_Frac_denitrif' plot_name '_' num2str(nG) 'G_'  num2str(a_param) 'a_' num2str(column_depth) 'cm_' ExpName , '_' str_date '.eps']);
+            print(fig4, '-depsc2', ['Frac_denitrif' plot_name '_' num2str(nG) 'G_'  num2str(a_param) 'a_' num2str(column_depth) 'cm_' ExpName , '_' str_date '.eps']);
             
             % plot fraction Fe-reduction vs Cox
             fig5 = figure('Renderer', 'painters', 'Position', [10 10 600 300]);
             set(0,'defaultLineLineWidth', 2)
             set(0,'DefaultAxesFontSize',12)
+            box on
             color = parula(length(O20));
             hold on
             for j=1:length(O20)
@@ -1456,14 +1465,15 @@ classdef benthic_test
             ylabel('Fract. of Fe-reduction (%)');
             xlabel(txt_xLabel);
             %             xlim(x_axis)
-            %            ylim([0 80])
-            print(fig5, '-depsc2', ['Flux_Frac_Fe2_red' plot_name '_' num2str(nG) 'G_'  num2str(a_param) 'a_' num2str(column_depth) 'cm_' ExpName , '_' str_date '_zoom.eps']);
+           ylim([0 20])
+            print(fig5, '-depsc2', ['Frac_Fe2_red' plot_name '_' num2str(nG) 'G_'  num2str(a_param) 'a_' num2str(column_depth) 'cm_' ExpName , '_' str_date '_zoom.eps']);
             
             % plot fraction Fe-reduction vs Cox
             % plot FFe2 vs Cox
             fig51 = figure('Renderer', 'painters', 'Position', [10 10 600 300]);
             set(0,'defaultLineLineWidth', 2)
             set(0,'DefaultAxesFontSize',12)
+            box on
             color = parula(length(O20));
             hold on
             for j=1:length(O20)
@@ -1476,12 +1486,13 @@ classdef benthic_test
             ylabel('Fract. of Fe-reduction (%)');
             xlabel(txt_xLabel);
             ylim(y_axis)
-            print(fig51, '-depsc2', ['Flux_Frac_Fe2_red' plot_name '_' num2str(nG) 'G_'  num2str(a_param) 'a_' num2str(column_depth) 'cm_' ExpName , '_' str_date  '.eps']);
+            print(fig51, '-depsc2', ['Frac_Fe2_red' plot_name '_' num2str(nG) 'G_'  num2str(a_param) 'a_' num2str(column_depth) 'cm_' ExpName , '_' str_date  '.eps']);
             
             % plot fraction SO4-reduction vs Cox
             fig6 = figure('Renderer', 'painters', 'Position', [10 10 600 300]);
             set(0,'defaultLineLineWidth', 2)
             set(0,'DefaultAxesFontSize',12)
+            box on
             color = parula(length(O20));
             hold on
             for j=1:length(O20)
@@ -1495,7 +1506,7 @@ classdef benthic_test
             xlabel(txt_xLabel);
             ylim(y_axis)
             %           xlim(x_axis)
-            print(fig6, '-depsc2', ['Flux_Frac_SO4_red' plot_name '_' num2str(nG) 'G_'  num2str(a_param) 'a_' num2str(column_depth) 'cm_' ExpName , '_' str_date '.eps']);
+            print(fig6, '-depsc2', ['Frac_SO4_red' plot_name '_' num2str(nG) 'G_'  num2str(a_param) 'a_' num2str(column_depth) 'cm_' ExpName , '_' str_date '.eps']);
             
         end
         
