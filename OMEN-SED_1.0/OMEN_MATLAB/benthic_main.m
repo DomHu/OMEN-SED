@@ -19,11 +19,11 @@ classdef benthic_main < handle
         wdepth=500.0;                           % water depth (m)
         w;                                      % burial velocity  (cm/yr) - calculated by internal fct. sedrate()
         z0  = 0;                                % surface
-        zbio=7.0;                              % bioturbation depth (cm)
-        zinf=30;                               %Inifinity (cm)
+        zbio=10.0;                              % bioturbation depth (cm)
+        zinf=100;                               %Inifinity (cm)
         loc_BW_O2_anoxia=20E-009;
         Dbio;                                   % bioturbation coefficient (cm2/yr) - calculated by internal fct. biorate()
-        por=0.70;                               % porosity (-)
+        por=0.85;                               % porosity (-)
         tort=3.0;                               %tortuosity (-)
         irrigationFactor=1.0;                   %irrigation factor (-)
         dispFactor;                             %dispersion factor (-)
@@ -46,8 +46,8 @@ classdef benthic_main < handle
         DICC1;                                  % DIC/C until zSO4 (mol/mol)
         DICC2;                                  % DIC/C below zSO4 (mol/mol)
         MC;                                     % CH4/C (mol/mol)
-        gamma=0.50;                           	% fraction of NH4 that is oxidised in oxic layer
-        gammaH2S=0.50;                         	% fraction of H2S that is oxidised in oxic layer
+        gamma=0.95;                           	% fraction of NH4 that is oxidised in oxic layer
+        gammaH2S=0.95;                         	% fraction of H2S that is oxidised in oxic layer
         gammaH2SFe=0.0;                       	% fraction of H2S that is oxidised with FeIII  (assume after zFeIII only sulfate reduction, as we don't know zSO4 yet)
         gammaFe2;                               % fraction of Fe2 that is oxidised in oxic layer, moved to Fe2-routine as calculated with S. vd Velde's fit to Cox and BW [O2])
         gammaFe_pp;                         	% fraction of Fe2 that is precipitated as pyrite, moved to Fe2-routine as calculated with S. vd Velde's fit to Cox and BW [O2])

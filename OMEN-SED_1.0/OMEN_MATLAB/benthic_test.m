@@ -640,12 +640,19 @@ classdef benthic_test
                         swi.BC_sed_rate = sed_holo_hr_updated(x,y);     % holocene sed-rate
                         swi.O20 = O2_BW_WOA2018_hr_updated(x,y)*10^(-9);
                         swi.NO30 = NO3_BW_hr_updated(x,y)*10^(-9);
+                        Flux_FeIII0_in = Fe3_HR_frac*FluxFe_total_Burw_BW_hr_updated(x,y)*10^(-6);
                         if(swi.O20 > hypoxic_th)
-                            swi.Flux_FeIII0 = (1-Fe3_in_SMI_frac_oxic)*Fe3_HR_frac*FluxFe_total_Burw_BW_hr_updated(x,y)*10^(-6);  % just reactivre part in mol/(cm2 yr)
+                            swi.Flux_FeIII0 = (1-Fe3_in_SMI_frac_oxic)*Flux_FeIII0_in;  % just reactivre part in mol/(cm2 yr)
+                            Flux_Fe2_from_SMI = Fe3_in_SMI_frac_oxic*Flux_FeIII0_in;  % in mol/(cm2 yr)
+
                         else
-                            swi.Flux_FeIII0 = (1-Fe3_in_SMI_frac_hypoxic)*Fe3_HR_frac*FluxFe_total_Burw_BW_hr_updated(x,y)*10^(-6);  % just reactivre part in mol/(cm2 yr)
+                            swi.Flux_FeIII0 = (1-Fe3_in_SMI_frac_hypoxic)*Flux_FeIII0_in;  % just reactivre part in mol/(cm2 yr)
+                            Flux_Fe2_from_SMI = Fe3_in_SMI_frac_hypoxic*Flux_FeIII0_in;  % in mol/(cm2 yr)
                             Cox_rate_out.grid_hypoxic=Cox_rate_out.grid_hypoxic+1;
+                            
                         end
+                        swi.Flux_Fe2_from_SMI = Flux_Fe2_from_SMI;
+
                         %                  	Fe_influx_Dale = 0.1667*1110.0E-006;                     % FeIII influx from Dale but just 16.67% is available for DIR (See his Tab. 2, footnote d)
                         %                     swi.Flux_FeIII0 =  (Fe_influx_Dale)*365/100^2;           % Dale 1110 mol/(m^2 day)   -->  mol/(cm^2 yr):     *365/100^2
                         
@@ -876,13 +883,19 @@ classdef benthic_test
                     swi.O20 = O20(j);
                     if(swi.O20 > hypoxic_th)
                         swi.Flux_FeIII0 = (1-Fe3_in_SMI_frac_oxic)*Flux_FeIII0_in;  % just reactivre part in mol/(cm2 yr)
+                        Flux_Fe2_from_SMI = Fe3_in_SMI_frac_oxic*Flux_FeIII0_in;  % in mol/(cm2 yr)
                     elseif(swi.O20 > anoxic_th)
                         	swi.Flux_FeIII0 = (1-Fe3_in_SMI_frac_hypoxic)*Flux_FeIII0_in;  % just reactivre part in mol/(cm2 yr)
+                            Flux_Fe2_from_SMI = Fe3_in_SMI_frac_hypoxic*Flux_FeIII0_in;  % in mol/(cm2 yr)
                     else
                         swi.Flux_FeIII0 = (1-Fe3_in_SMI_frac_anoxic)*Flux_FeIII0_in;  % just reactivre part in mol/(cm2 yr)
+                    	Flux_Fe2_from_SMI = Fe3_in_SMI_frac_anoxic*Flux_FeIII0_in;  % in mol/(cm2 yr)
                     end
+                    swi.Flux_Fe2_from_SMI = Flux_Fe2_from_SMI;
                     
                     res=benthic_test.test_benthic(1,swi);
+                    
+                    Flux_Fe2_from_SMI_Daleunits = Flux_Fe2_from_SMI*10^6*100^2/365;     % from mol/(cm2 yr) to umol m-2 d-1
                     % set date-time or string going into plot function
                     
                     swi.C0i = res.swi.C0i;
@@ -914,7 +927,8 @@ classdef benthic_test
                     
                     Cox_total_diff = (F_TOC_swi-F_TOC_inf)*1000 *100^2/365;      % in units of mmol m-2 d-1 as in Dale ea. 2015, Fig. 2a
                     Flux_Fe2_Dale_units(i,j) = res.flxswiFe2 *10^6 *100^2 /365;                   % in units of umol m-2 d-1 as in Dale ea. 2015, Fig. 3
-                    
+%                    Flux_Fe2_from_SMI_Daleunits_clean = (1-res.bsd.gammaFe_pp)*(1 - res.bsd.gammaFe2)*Flux_Fe2_from_SMI_Daleunits;
+%                    Flux_Fe2_Dale_units(i,j) = res.flxswiFe2 *10^6 *100^2 /365 + Flux_Fe2_from_SMI_Daleunits_clean;
                     
                     
                     %% old output:
@@ -962,7 +976,7 @@ classdef benthic_test
             
             if(swi.BC_wdepth_flag)
                 if(swi.BC_wdepth<=200) % change porosity for shelfs, i.e. <200m
-                    por_shelf = 0.80;
+                    por_shelf = 0.85;
                 	res.bsd = benthic_main(ncl, swi.BC_wdepth, por_shelf);   % specify 350m water-depth
                 else
                     res.bsd = benthic_main(ncl, swi.BC_wdepth);   % specify 350m water-depth
@@ -1237,6 +1251,9 @@ classdef benthic_test
                 if(swi.Iron)
                     
                     res = res.zFe2.calc(res.bsd, res.swi, res);
+                    % correct Fe2 return flux by Fe2 lost to pyrite
+                    % precipitation and SMI
+                    res.flxswiFe2 = res.flxswiFe2 + swi.Flux_Fe2_from_SMI*(1-res.bsd.gammaFe_pp)*(1 - res.bsd.gammaFe2);
                 end
                 res = res.zH2S.calc(res.bsd, res.swi, res);
                 if(swi.calc_P_DIC_ALK)
@@ -1347,7 +1364,8 @@ classdef benthic_test
             
             str_date = datestr(now,'ddmmyy');
             vs_Cox = true;
-            plot_effluxes = false;
+            plot_effluxes = true;
+            plot_frac_pathways = false;
             
             if(vs_Cox)
                 plot_name = '_vs_Cox';
@@ -1404,6 +1422,7 @@ classdef benthic_test
             print(fig2, '-depsc2', ['Flux_JFFe2' plot_name '_' num2str(nG) 'G_' num2str(a_param) 'a_' num2str(column_depth) 'cm_' ExpName , '_' str_date '.eps']);
             end
             
+            if(plot_frac_pathways)
             %% Plot fraction of metabolic pathways
             y_axis = [0 100];
             % plot fraction aerobic-reduction vs Cox
@@ -1507,7 +1526,7 @@ classdef benthic_test
             ylim(y_axis)
             %           xlim(x_axis)
             print(fig6, '-depsc2', ['Frac_SO4_red' plot_name '_' num2str(nG) 'G_'  num2str(a_param) 'a_' num2str(column_depth) 'cm_' ExpName , '_' str_date '.eps']);
-            
+            end
         end
         
         

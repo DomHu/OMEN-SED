@@ -135,10 +135,22 @@ classdef benthic_zFe2
             % ... and top of layer 4
             [ e4_zfeIII, dedz4_zfeIII, f4_zfeIII, dfdz4_zfeIII, g4_zfeIII, dgdz4_zfeIII] ...
                 = r.zTOC_RCM.calcfg_l12(r.zfeIII, bsd, swi, r,  0,  0, rFe2.ls4);
-            %flux of Fe2 consumed at zFeIII, reacts with flux of H2S from below is precipitated as pyrite (Sink of Fe2)
+             %flux of Fe2 consumed at zFeIII, reacts with flux of H2S from below is precipitated as pyrite (Sink of Fe2)
             zfeIIIFFe2 = r.zTOC_RCM.calcReac(r.zno3, r.zfeIII, obj.reac1, bsd, swi, r)*bsd.gammaFe_pp; 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            % NEW IDEA 06.05.2022
+            % now also add Fe2+ from SMI!   
+            % But this would need to be accounted for in H2S and SO4 as
+            % well... get's too messy, just use lower Fe3+ input which
+            % results in lower Fe2+ return and higher H2S return as it is
+            % not oxidized
+%             zfeIIIFFe2_reac = r.zTOC_RCM.calcReac(r.zno3, r.zfeIII, obj.reac1, bsd, swi, r);
+%             zfeIIIFFe2_SMI = swi.Flux_Fe2_from_SMI;
+%             zfeIIIFFe2 = (zfeIIIFFe2_reac + zfeIIIFFe2_SMI)*bsd.gammaFe_pp; 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            
 %            zfeIIIFFe2 = r.swi.Flux_FeIII0*1.0;  % 
-            zfeIIIFH2S = r.zTOC_RCM.calcReac(r.zfeIII, bsd.zinf, bsd.SO4C, bsd, swi, r); % assume zso4 = zinf
+%            zfeIIIFH2S = r.zTOC_RCM.calcReac(r.zfeIII, bsd.zinf, bsd.SO4C, bsd, swi, r); % assume zso4 = zinf
             %flux of Fe2 produced below zFeIII - oxidation of H2S by FeIII (Source of Fe2)
 %            zfeIIIFFe2 = r.zTOC_RCM.calcReac(r.zfeIII, bsd.zinf, bsd.MC, bsd.MC, bsd, swi, r); % MULTIPLY BY 1/POR ????
             % match solutions at zfeIII - continuous concentration and flux
