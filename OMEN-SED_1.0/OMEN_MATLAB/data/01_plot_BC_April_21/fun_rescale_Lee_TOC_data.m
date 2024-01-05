@@ -5,7 +5,7 @@
 % also check that at least 1/3% of grid-cells are ocean when calculating mean 
 % otherwise define as land (i.e. set NaN)
 
-load_and_plot_Lee_data = false;
+load_and_plot_Lee_data = true;
 
 path(path,'/home/domhu/Documents/MATLAB/M_Map');
 
@@ -94,7 +94,7 @@ for x=1:n_lower:n-n_lower_help  % latitudes
       	toc_nanmean =  nanmean(nanmean(toc_sub));     % calculate mean of toc
         toc_nanmean_weighted = nansum(nansum(toc_sub.*dxdy_submatrix))/nansum(nansum(dxdy_submatrix));
      	Lee_toc_lr(x_new, y_new) =toc_nanmean;            % save in new matrix
-        Lee_toc_lr_weighted(x_new, y_new) =toc_nanmean_weighted;
+        Lee_toc_lr_weighted(x_new, y_new) =toc_nanmean_weighted;    % USE this as it is mean accounting for the grid-areas!
       end
       
    end

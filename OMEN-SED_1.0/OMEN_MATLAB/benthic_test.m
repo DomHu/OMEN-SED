@@ -30,14 +30,14 @@ classdef benthic_test
             swi.Test_Dale = false;
             swi.Test_Dale_14G = false;               % use for 14G model as in Dale or nG as specified below
             swi.plot_fig = true;                                % plot the sediment profiles
-            swi.write_output = false;
+            swi.write_output = true;
             
             swi.calc_P_DIC_ALK=true;       % also calculate P, DIC & ALK?
             
-            swi.IntConst_GMD= true;         % true A1, A2 as in GMD; false: use Sandra's calculation
+            swi.IntConst_GMD= false;         % true A1, A2 as in GMD; false: use Sandra's calculation
             
             swi.Nitrogen=true;                                  % calculate N (true/false)
-            swi.Iron=true;                                      % calculate Fe (true/false)
+            swi.Iron=false;                                      % calculate Fe (true/false)
             
             % for 2G-model
             swi.C01_nonbio= 0.7*1e-2/12*bsd.rho_sed;            % TOC concentration at SWI (wt%) -> (mol/cm^3 solid phase)
@@ -48,11 +48,12 @@ classdef benthic_test
             swi.C02 = swi.C02_nonbio;                           % resulting bioturbated SWI-concentration, to be calculated in benthic_zTOC.m
             
             % for nG-model
-            swi.nG = 100;
-            swi.p_a = 1.0;
-            swi.p_nu = 0.125;
-            swi.TOCwt_SWI = 3.0;
+            swi.nG = 500;
+            swi.p_a = 0.00001;
+            swi.p_nu = 0.066;
+            swi.TOCwt_SWI = 4.5;
             swi.C0_nonbio = swi.TOCwt_SWI * 1e-2/12*bsd.rho_sed;                 % TOC concentration at SWI (wt%) -> (mol/cm^3 bulk phase)
+
             swi.FOM_total = 3.91140e-003;                                       % In case a total settling flux of OM is, specify this here and set swi.flux = true; [Note: not tested] 
             swi.flux = false;
             swi.k = 0.0;    % in case 1G as Thullner ea. '09
@@ -63,10 +64,10 @@ classdef benthic_test
             %            swi.FeIII0= swi.Flux_FeIII0/((1-bsd.por)*bsd.w);     % calculate concentration [mol/cm^3] from flux [mol/(cm2 yr)] according non-bioturbated flux!!!
             
             %bottom water concentrations
-            swi.T = 8.0;                                        % temperature (degree C)
-            swi.O20=300.0E-009;                                 % O2  concentration at SWI (mol/cm^3)
-            swi.NO30=35.0e-9;                                   % NO3 concentration at SWI (mol/cm^3)
-            swi.NH40=10.0e-9;                                 	% NH4 concentration at SWI (mol/cm^3)
+            swi.T = 12.5;                                        % temperature (degree C)
+            swi.O20=210.0E-009;                                 % O2  concentration at SWI (mol/cm^3)
+            swi.NO30=9.6e-9;                                   % NO3 concentration at SWI (mol/cm^3)
+            swi.NH40=0.4e-9;                                 	% NH4 concentration at SWI (mol/cm^3)
             swi.Fe20=0.0;                                       % Fe2 concentration at SWI (mol/cm^3)
             swi.SO40=2.8E-005;                                	% SO4 concentration at SWI (mol/cm^3)
             swi.H2S0=0.0;                                       % H2S concentration at SWI (mol/cm^3)
@@ -144,7 +145,7 @@ classdef benthic_test
             % set date-time or string going into plot function
             str_date = [exp_name, num2str(res.swi.nG) 'G_a=' num2str(res.swi.p_a) '_nu=' num2str(res.swi.p_nu) '_O20_' num2str(res.swi.O20)];
             if(swi.plot_fig)
-%                benthic_test.plot_column(res, false, swi, str_date)
+                benthic_test.plot_column(res, false, swi, str_date)
                 benthic_test.plot_TOC(res, false, swi, str_date)
             end
             % calculate depth integrated OM degradation rates (this is
@@ -2396,7 +2397,12 @@ classdef benthic_test
                 if abs(sum(F)-1) > 0.0001
                     warning('F~=1!!');
                 end
-                Fnonbioi = F.* swi.FOM_total; % Dom was: 11.05.21: F.*( swi.C0_nonbio*(1-bsd.por)*bsd.w ); % NonBioturbated SWI
+                
+                if(swi.flux)
+                    Fnonbioi = F.* swi.FOM_total; % Dom was
+                else
+                  	Fnonbioi = F.*( swi.C0_nonbio*(1-bsd.por)*bsd.w ); % NonBioturbated SWI
+                end
                 C0i = F.*swi.C0_nonbio;
                 
                 % plot Fractions vs log(k)
