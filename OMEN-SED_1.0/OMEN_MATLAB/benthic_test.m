@@ -32,7 +32,7 @@ classdef benthic_test
             swi.plot_fig = true;                                % plot the sediment profiles
             swi.write_output = true;
             
-            swi.calc_P_DIC_ALK=true;       % also calculate P, DIC & ALK?
+            swi.calc_P_DIC_ALK=false;       % also calculate P, DIC & ALK?
             
             swi.IntConst_GMD= false;         % true A1, A2 as in GMD; false: use Sandra's calculation
             
@@ -49,12 +49,13 @@ classdef benthic_test
             
             % for nG-model
             swi.nG = 500;
-            swi.p_a = 0.00001;
-            swi.p_nu = 0.066;
+            swi.p_a = 0.1;
+            swi.p_nu = 0.151;
+            swi.C0 = 1.0 * 1e-2/12*bsd.rho_sed;                 % TOC concentration at SWI (wt%) -> (mol/cm^3 bulk phase)
             swi.TOCwt_SWI = 4.5;
-            swi.C0_nonbio = swi.TOCwt_SWI * 1e-2/12*bsd.rho_sed;                 % TOC concentration at SWI (wt%) -> (mol/cm^3 bulk phase)
+            swi.C0_nonbio = NaN; %swi.TOCwt_SWI * 1e-2/12*bsd.rho_sed;                 % TOC concentration at SWI (wt%) -> (mol/cm^3 bulk phase)
 
-            swi.FOM_total = 3.91140e-003;                                       % In case a total settling flux of OM is, specify this here and set swi.flux = true; [Note: not tested] 
+            swi.FOM_total = NaN; %3.91140e-003;                                       % In case a total settling flux of OM is, specify this here and set swi.flux = true; [Note: not tested] 
             swi.flux = false;
             swi.k = 0.0;    % in case 1G as Thullner ea. '09
             
@@ -78,8 +79,350 @@ classdef benthic_test
             swi.S0=35;                                         	% Salinity at SWI (not used at the moment)
             
             
-            swi.plot_PO4_DIC_ALK=true;
+            swi.plot_PO4_DIC_ALK=false;
         end
+        
+        
+    	function [res] = calc_a_from_Jorgensen_DOU(SAR_Restreppo, Db_Middelburg, string_out)
+            %% Calculate a values based on the DOU map of Jorgensen et al. (2022)
+            %% Use all our updated boundary conditions, e.g., the Restreppo sedimentation rates, spatially explicit porosity values, zbio after Song et al., and new surface TOC wt%. 
+            
+            
+            % SAR_Restreppo:    true : use Restreppo data 
+            %                   false : use Burwicz parameterization
+            % Db_Middelburg:    true : use Middelburg parametrization
+            %                   false : use Dbio extrapolated from Solan data (not good) 
+            
+            zbio_fix = false;   % set this true to use zbio_global everywhere
+            zbio_global=5.75;   % 5.75 cm (Teal et al., 2008) and 9.8 cm (Boudreau, 1998)
+                        
+            warning('query','all')
+            warning('off','all')
+            warning
+            
+            str_date = [datestr(date,11), datestr(date,5), datestr(date,7)];
+            
+            string_out = [string_out  'Best_estimate_'];
+            SA_coefficient = 1.0;
+            
+            lat = (89.875:-0.25:-89.875);
+            long = (-179.875:0.25:179.875);
+ 
+            %__________________________________________________________________________
+            %   load data
+            %__________________________________________________________________________
+            toc = load('./data/BC_calc_a_from_Jorgensen/surfOC_matrix_2023_new_v01.csv');
+            porosity_matrix_new = load('./data/BC_calc_a_from_Jorgensen/porosity_matrix_2023_new_v01.csv');
+            
+            % load Restreppo SAR
+            SAR_Restreppo_data = load('./data/BC_calc_a_from_Jorgensen/Restreppo_sar_matrix_2023-09-21_new.csv');            
+            
+            water_depth = load('./data/BC_calc_a_from_Jorgensen/bathymetry_matrix_new.csv');
+            
+            DOU_mask_coast_filled = struct2array(load('./data/BC_calc_a_from_Jorgensen/DOU_mask_coast_filled.mat'));
+            
+            % zbio interpolated from Song et al. (2022)
+            zbio_interpolated = struct2array(load('./data/BC_calc_a_from_Jorgensen/Bioturbation_depth_remapped_natural.mat'));
+            zbio_nan=0;
+            zbio_good=0;
+            
+            % old a-values from Pika et al. (2023) to start with
+         	a_values_start = struct2array(load('./data/BC_calc_a_from_Jorgensen/a_value_local_Start.mat'));
+
+            %% TODO FROM HERE - load the updated BCs from ./data/BC_calc_a_from_Jorgensen  -- check with run_OMEN_RCM_global how things are called!
+            Seafloor_Tmp = struct2array(load('./data/Tmp_BW_hr_updated.mat'));                             % BW temperature [°C]
+            load './data/O2_BW_WOA2018_hr_updated.mat'                  	% BW  O2 [muM = 10^-6 mol/kg]  -- need to convert into mol/cm^3 , i.e. *10^-3
+            load './data/NO3_BW_hr_updated.mat'                             % BW  NO3 [muM = 10^-6 mol/kg]  -- need to convert into mol/cm^3 , i.e. *10^-3
+            
+
+            % error counters
+            wrong_iter = 0;
+          	wrong_iter_age = 0;
+            zbioMatching_xy_GMD(1,:)=[0 0];
+            zbioMatching_xy_final(1,:)=[0 0];
+         	NEGATIVE_OXID_xy(1,:)=[0 0];
+
+            debug.iter_zbioMatching_GMD = 0;        % counter for calculating the correct TOC profile using the GMD IntConst
+           	debug.iter_zbioMatching_final = 0;      % counter for calculating the correct TOC profile after trying different methods
+           	debug.iter_NEGATIVE_OXID = 0;           % counter for negative total OM oxidation
+
+
+            [m,n]=size(toc);
+
+            ncl = 1;
+            res.bsd = benthic_main(ncl);            
+         	res.bsd.zinf = 800;	
+
+            
+            res.bsd.usescalarcode = ncl==1;
+            
+            swi = benthic_test.default_swi();
+            swi.TwoG_OM_model = false;
+         	swi.flux = false;
+
+            
+            %__________________________________________________________________________
+            %   set specific parameters
+            %__________________________________________________________________________
+            
+            res.swi = swi;
+            
+            xstart=1; %55;
+            xstop=m;  %55;        %lat
+            ystart=1;  % 6;
+            ystop=n;  % 6;        %long (or the other way around- who knows!)
+
+            Restreppo_NaN = 0;
+            for x = 1:m
+%         	for x = xstart:xstop
+                x
+                % calculate volume
+                % convert deg to cm CODAS package (by E.Firing,et al.)
+                rlat = lat(x) * pi/180;
+                m = 111132.09  - 566.05 * cos(2 * rlat)+ 1.2 * cos(4 * rlat);
+                dy = 0.25*m*100.0; %cm
+                p = 111415.13 * cos(rlat) - 94.55 * cos(3 * rlat);
+                dx = 0.25*p*100.0; %cm
+                
+                for y = 1:n
+%                for y = ystart:ystop
+                    if ((isnan(toc(x,y))))    % check for toc = NaN
+
+                        toc(x,y)=NaN;
+                      	dxdy(x,y)   = NaN;
+                                               
+                        a_value_best(x,y) = NaN;
+
+
+                    else                        
+
+                        res.swi.p_a=a_values_start(x,y);    % set first guess for a-value
+                        res.bsd.wdepth = -water_depth(x,y);
+                        if(SAR_Restreppo)
+                            res.bsd.w=SAR_Restreppo_data(x,y)*SA_coefficient;
+                            if(isnan(res.bsd.w))
+                                res.bsd.w=benthic_main.sedrate(res.bsd.wdepth)*SA_coefficient;
+                                Restreppo_NaN = Restreppo_NaN+1;
+                            end
+                        else
+                            res.bsd.w=benthic_main.sedrate(res.bsd.wdepth)*SA_coefficient;
+                        end
+                        
+
+                        if(Db_Middelburg)
+                            res.bsd.Dbio=benthic_main.biorate(res.bsd.wdepth)*SA_coefficient;                       
+                        else
+                            res.bsd.Dbio=benthic_main.biorate_Solan_MARCATS(res.bsd.wdepth)*SA_coefficient;    
+                        end
+                        res.bsd.zbio=zbio_interpolated(x,y)*SA_coefficient;
+                        
+                        if(zbio_fix)
+                            res.bsd.zbio=zbio_global;   % 5.75 cm (Teal et al., 2008) and 9.8 cm (Boudreau, 1998)
+                        end
+                        if(isnan( res.bsd.zbio))
+                             res.bsd.zbio=zbio_global*SA_coefficient;  % set to zbio_global if no value
+                             zbio_nan=zbio_nan+1;
+                        else
+                            zbio_good=zbio_good+1;
+                        end
+                        
+                        res.bsd.por=porosity_matrix_new(x,y)/100;  %porosity at SWI
+                        
+                        % initialize parameters of analytical solution
+                        conv=2.5/100*(1-res.bsd.por);   % convert wt% -> g/cm3 (total sediment)   -- this is what Sandra did for James
+                        conv=2.5/100;   % convert wt% -> g/cm3 (total sediment)     -- I think in my model I need it as bulk sediment because I apply *(1-por) when I calculate the flux in calcCflx() !!??
+                        res.swi.C0=toc(x,y)*conv;          % POC at SWI (wt% -> g/cm3(total sediment))
+                        
+                                                
+                        % initialize & calculate
+                        res.zTOC_RCM = benthic_zTOC_RCM(res.bsd);
+                        % Adding into on RCM for MultiG approach
+                        [res.zTOC_RCM.k, res.swi.C0i, res.swi.Fnonbioi] = benthic_test.RCM(res.bsd, res.swi);
+                        res = res.zTOC_RCM.calc(res.bsd,res.swi, res);
+                        
+                        dxdy(x,y)   = dx*dy;    % cm^2 per grid-cell
+
+                        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                        %% calculate TOC fluxes 
+                     	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+                        %%%%%%%%%%%%%%%%%
+                        % flux through SWI (just for BE calculation - total value is way too high -- maybe a few very wrong grid-cells!?)
+                        [F_TOC_swi, F_TOC1_swi] = res.zTOC_RCM.calcCflx(0, res.bsd, res.swi, res);
+                        Flux_TOC_swi(x,y) = nansum(F_TOC1_swi)*dx*dy;  % 
+                        Flux_TOC_swi_perArea(x,y) = nansum(F_TOC1_swi);  % 
+
+                        
+                        %%%%%%%%%%%%%%%%%
+                        % through different depth levels - calculate maps of BE and Fluxes                         
+                        for i=1:length(depth_levels)
+
+                            [F_TOC_inf, F_TOC1_inf] = res.zTOC_RCM.calcCflx(depth_levels(i), res.bsd, res.swi, res);
+                            if(nansum(F_TOC1_inf)<nansum(F_TOC1_swi) | nansum(F_TOC1_inf) >0 )   % check if flu in sedimentis larger at SWI
+                              %  nansum(F_TOC1_inf);
+                                wrong_iter=wrong_iter+1;
+                                F_TOC1_inf=0;
+                            end
+                            Flux_depth{i}(x,y) = nansum(F_TOC1_inf)*dx*dy;  %   in g/yr
+                         	Flux_depth_inTg{i}(x,y) = Flux_depth{i}(x,y)*1e-12;   %   in Tg/yr
+                            Flux_depth_perArea{i}(x,y) = nansum(F_TOC1_inf);  %   in g /(cm^2 yr)
+                            BE_depth{i}(x,y) = nansum(F_TOC1_inf)/nansum(F_TOC1_swi)*100;                            
+                        end
+
+                        % through different age-levels - calculate maps of BE and Fluxes             
+                        for j=1:length(age_levels)
+                            %  age_levels = [150 1000 5000];  % in yr    
+                            % NOTE: add zbio as the age related depth-layers start with 0 = zbio
+                            [F_TOC_inf, F_TOC1_inf] = res.zTOC_RCM.calcCflx(Age_layers{j}(x,y) +  res.bsd.zbio, res.bsd, res.swi, res);
+                            if(nansum(F_TOC1_inf)<nansum(F_TOC1_swi) | nansum(F_TOC1_inf) > 0 )   % check if flu in sedimentis larger at SWI
+                              %  nansum(F_TOC1_inf);
+                                wrong_iter_age=wrong_iter_age+1;
+                                F_TOC1_inf=0;
+                            end
+                            Flux_age{j}(x,y) = nansum(F_TOC1_inf)*dx*dy;  %   in g/yr
+                         	Flux_age_inTg{j}(x,y) = Flux_age{j}(x,y)*1e-12;   %   in Tg/yr
+                            Flux_age_perArea{j}(x,y) = nansum(F_TOC1_inf);  %   in g /(cm^2 yr)
+                            BE_age{j}(x,y) = nansum(F_TOC1_inf)/nansum(F_TOC1_swi)*100;                            
+                        end                        
+
+                    end
+                    
+                    
+                end
+            end
+            wrong_iter
+            wrong_iter_age
+           	Restreppo_NaN
+
+            % calculate global total burial per depth level  in Tg/yr
+            for i=1:length(depth_levels)
+                Total_burial_depth(i) = nansum(nansum(Flux_depth{i}))/10^(12);
+            end
+            % calculate global total burial per age level  in g/yr
+            for i=1:length(age_levels)
+                Total_burial_age(i) = nansum(nansum(Flux_age{i}))/10^(12);
+            end                    
+            
+            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+            % save results
+            save(['output/Flux_TOC_swi_', string_out, str_date '.mat'] , 'Flux_TOC_swi');            
+
+%            save(['output/BE_depth_', string_out, str_date '.mat'] , 'BE_depth');
+            save(['output/' str_date '_Flux_depth_', string_out '.mat'] , 'Flux_depth');                   %   in g/yr
+            save(['output/' str_date '_Flux_depth_inTg_', string_out '.mat'] , 'Flux_depth_inTg');         %   in Tg/yr
+            save(['output/' str_date '_Flux_depth_perArea', string_out '.mat'] , 'Flux_depth_perArea');    %   in g /(cm^2 yr)                      
+         	save(['output/' str_date '_Total_burial_depth_', string_out '.mat'] , 'Total_burial_depth');
+            
+%         	save(['output/BE_age_', string_out, str_date '.mat'] , 'BE_age');
+            save(['output/' str_date '_Flux_age_', string_out '.mat'] , 'Flux_age');                   %   in g/yr
+            save(['output/' str_date '_Flux_age_inTg_', string_out '.mat'] , 'Flux_age_inTg');         %   in Tg/yr
+            save(['output/' str_date '_Flux_age_perArea', string_out '.mat'] , 'Flux_age_perArea');    %   in g /(cm^2 yr)                      
+         	save(['output/' str_date '_Total_burial_age_', string_out '.mat'] , 'Total_burial_age');
+            
+            %%  Calculate the TOC burial fluxes for different areas  (i.e., MARCAT, EEZ, Longhurst)            
+            
+            % 45 MARCAT regions (only ~39 with TOC values)
+            load('MARCAT_Regions_UPDATE/TOC_polygon_MARCAT.mat');
+          	S = shaperead('./MARCAT_Regions_UPDATE/Regions_V2.shp');
+            for i=1:length(S)
+                Mean_lat(i)=nanmean(S(i).Y);
+            end
+
+            if true % was  false
+            [TOC_burial_per_OceanRegion, Area_per_OceanRegion] = benthic_test.calc_area_burial(Flux_depth_inTg, dxdy, TOC_polygon_MARCAT);
+            Tr_TOC_burial_per_OceanRegion= TOC_burial_per_OceanRegion';
+            Tr_Area_per_OceanRegion=Area_per_OceanRegion';
+            Table_Ocean_region = array2table([vertcat(S.OBJECTID) Tr_TOC_burial_per_OceanRegion Tr_Area_per_OceanRegion, Tr_TOC_burial_per_OceanRegion(:,5)./Tr_Area_per_OceanRegion(:).*10^9, Mean_lat', vertcat(S.MARCAT)]);
+            Table_Ocean_region.Properties.VariableNames(1:12) = {'OBJECTID','1cm','10cm','20cm','50cm', '100cm', '200cm','500cm', 'Size (km2)', 'Area flx 1m','Mean lat','MARCAT'};
+            save(['output/' str_date '_Table_OceanRegion_MARCAT_45regions', string_out '.mat'] , 'Table_Ocean_region');
+            end
+
+            [TOC_burial_per_OceanRegion_depth, Area_per_OceanRegion_depth] = benthic_test.calc_area_burial(Flux_age_inTg, dxdy, TOC_polygon_MARCAT);
+            Tr_TOC_burial_per_OceanRegion_depth= TOC_burial_per_OceanRegion_depth';
+            Tr_Area_per_OceanRegion_depth=Area_per_OceanRegion_depth';
+            Table_Ocean_region_age = array2table([vertcat(S.OBJECTID) Tr_TOC_burial_per_OceanRegion_depth Tr_Area_per_OceanRegion_depth, Mean_lat', vertcat(S.MARCAT)]);
+            Table_Ocean_region_age.Properties.VariableNames(1:7) = {'OBJECTID','100years','500years','1000years', 'Size (km2)','Mean lat','MARCAT'};
+            save(['output/' str_date '_Table_OceanRegion_MARCAT_45regions_age', string_out '.mat'] , 'Table_Ocean_region_age');
+            
+            if true % was false
+            % MARCAT areas:
+            % 1: EBC, 2: WBC, 3: Indian, 4: Sub-Polar, 5: Polar, 6: Marginal, 7: Tropical                        
+            load('MARCAT_Regions_UPDATE/TOC_MARCAT.mat', 'TOC_MARCAT');
+            
+            if  true % was false
+            [TOC_burial_per_OceanRegion, Area_per_OceanRegion] = benthic_test.calc_area_burial(Flux_depth_inTg, dxdy, TOC_MARCAT);
+            Tr_TOC_burial_per_OceanRegion= TOC_burial_per_OceanRegion';
+            Tr_Area_per_OceanRegion=Area_per_OceanRegion';
+            Table_Ocean_region = array2table([(1:7)' ,Tr_TOC_burial_per_OceanRegion Tr_Area_per_OceanRegion, Tr_TOC_burial_per_OceanRegion(:,5)./Tr_Area_per_OceanRegion(:).*10^9]);
+            Table_Ocean_region.Properties.VariableNames(1:10) = {'MARCAT','1cm','10cm','20cm','50cm', '100cm', '200cm','500cm', 'Size (km2)', 'Area flx 1m'};
+            save(['output/' str_date '_Table_OceanRegion_MARCAT', string_out '.mat'] , 'Table_Ocean_region');
+            end
+            [TOC_burial_per_OceanRegion_age, Area_per_OceanRegion_age] = benthic_test.calc_area_burial(Flux_age_inTg, dxdy, TOC_MARCAT);
+            Tr_TOC_burial_per_OceanRegion_age= TOC_burial_per_OceanRegion_age';
+            Tr_Area_per_OceanRegion_age=Area_per_OceanRegion_age';
+            Table_Ocean_region_age = array2table([(1:7)' ,Tr_TOC_burial_per_OceanRegion_age Tr_Area_per_OceanRegion_age]);
+            Table_Ocean_region_age.Properties.VariableNames(1:5) = {'MARCAT','100years','500years','1000years', 'Size (km2)'};
+            save(['output/' str_date '_Table_OceanRegion_MARCAT_age', string_out '.mat'] , 'Table_Ocean_region_age');
+            
+            
+            % Longhurst areas:
+          	load('longhurst_v4_2010/TOC_polygon_Longhurst.mat')
+            S = shaperead('./longhurst_v4_2010/Longhurst_world_v4_2010.shp');
+ 
+            [TOC_burial_per_OceanRegion, Area_per_OceanRegion] = benthic_test.calc_area_burial(Flux_depth_inTg, dxdy, TOC_polygon_Longhurst);            
+            Tr_TOC_burial_per_OceanRegion= TOC_burial_per_OceanRegion';
+            Tr_Area_per_OceanRegion=Area_per_OceanRegion';
+           	Table_Ocean_region = array2table([(1:length(S))' Tr_TOC_burial_per_OceanRegion Tr_Area_per_OceanRegion, Tr_TOC_burial_per_OceanRegion(:,5)./Tr_Area_per_OceanRegion(:).*10^9]);
+            Table_Ocean_region.Properties.VariableNames(1:10) = {'OBJECTID','1cm','10cm','20cm','50cm', '100cm', '200cm','500cm', 'Size (km2)', 'Area flx 1m'};
+            save(['output/' str_date '_Table_OceanRegion_Longhurst', string_out '.mat'] , 'Table_Ocean_region');
+
+            [TOC_burial_per_OceanRegion_age, Area_per_OceanRegion_age] = benthic_test.calc_area_burial(Flux_age_inTg, dxdy, TOC_polygon_Longhurst);            
+            Tr_TOC_burial_per_OceanRegion_age= TOC_burial_per_OceanRegion_age';
+            Tr_Area_per_OceanRegion_age=Area_per_OceanRegion_age';
+           	Table_Ocean_region_age = array2table([(1:length(S))' Tr_TOC_burial_per_OceanRegion_age Tr_Area_per_OceanRegion_age]);
+            Table_Ocean_region_age.Properties.VariableNames(1:5) = {'OBJECTID','100years','500years','1000years', 'Size (km2)'};
+            save(['output/' str_date '_Table_OceanRegion_Longhurst_age', string_out '.mat'] , 'Table_Ocean_region_age');
+            
+
+            % EEZ
+            S_EEZ = shaperead('./EEZ/eez_v11.shp');
+            
+            % EEZ countries code 1:157
+          	load('EEZ/TOC_EEZ_Country.mat')
+            
+            [TOC_burial_per_OceanRegion, Area_per_OceanRegion] = benthic_test.calc_area_burial(Flux_depth_inTg, dxdy, TOC_EEZ_Country);
+            Tr_TOC_burial_per_OceanRegion= TOC_burial_per_OceanRegion';
+            Tr_Area_per_OceanRegion=Area_per_OceanRegion';            
+           	Table_Ocean_region = array2table([(1:157)' Tr_TOC_burial_per_OceanRegion Tr_Area_per_OceanRegion, Tr_TOC_burial_per_OceanRegion(:,5)./Tr_Area_per_OceanRegion(:).*10^9]);
+            Table_Ocean_region.Properties.VariableNames(1:10) = {'Country_ID','1cm','10cm','20cm','50cm', '100cm', '200cm','500cm', 'Size (km2)', 'Area flx 1m'};
+            save(['output/' str_date '_Table_OceanRegion_EEZ', string_out '.mat'] , 'Table_Ocean_region');
+  
+            [TOC_burial_per_OceanRegion_age, Area_per_OceanRegion_age] = benthic_test.calc_area_burial(Flux_age_inTg, dxdy, TOC_EEZ_Country);
+            Tr_TOC_burial_per_OceanRegion_age= TOC_burial_per_OceanRegion_age';
+            Tr_Area_per_OceanRegion_age=Area_per_OceanRegion_age';            
+           	Table_Ocean_region_age = array2table([(1:157)' Tr_TOC_burial_per_OceanRegion_age Tr_Area_per_OceanRegion_age]);
+            Table_Ocean_region_age.Properties.VariableNames(1:5) = {'Country_ID','100years','500years','1000years', 'Size (km2)'};
+            save(['output/' str_date '_Table_OceanRegion_EEZ_age', string_out '.mat'] , 'Table_Ocean_region_age');
+  
+            end
+            % This is all tiny EEZ territories (above they are combined per country)
+            if false    
+                % EEZ territories:
+                load('EEZ/TOC_polygon_EEZ.mat')
+
+                [TOC_burial_per_OceanRegion, Area_per_OceanRegion] = benthic_test.calc_area_burial(Flux_depth_inTg, dxdy, TOC_polygon_EEZ);
+                Tr_TOC_burial_per_OceanRegion= TOC_burial_per_OceanRegion';
+                Tr_Area_per_OceanRegion=Area_per_OceanRegion';
+                Table_Ocean_region = array2table([(1:length(S_EEZ))' Tr_TOC_burial_per_OceanRegion Tr_Area_per_OceanRegion, Tr_TOC_burial_per_OceanRegion(:,5)./Tr_Area_per_OceanRegion(:).*10^9]);
+                Table_Ocean_region.Properties.VariableNames(1:10) = {'TERRITORY_ID','1cm','10cm','20cm','50cm', '100cm', '200cm','500cm', 'Size (km2)', 'Area flx 1m'};
+                save(['output/' str_date '_Table_OceanRegion_EEZ_Territory', string_out '.mat'] , 'Table_Ocean_region');
+            end
+            
+            zbio_nan
+            zbio_good
+        end
+
+        
         
         function run_OMEN()
             % run OMEN-SED with default SWI conditions as in default_swi()
@@ -2390,6 +2733,7 @@ classdef benthic_test
                 G_inc_0 = gammainc(swi.p_a*kk(1:swi.nG-2),swi.p_nu,'upper'); % G-1 = 1:end-2
                 G_inc_1 = gammainc(swi.p_a*kk(2:swi.nG-1),swi.p_nu,'upper'); % G = 2:end-1
                 F(2:swi.nG-1) = (G_inc_0 - G_inc_1);
+                % calculate the mean degradation rate for the intermediate OM fractions
                 k(G)=kk(1:swi.nG-2)+(kk(2:swi.nG-1)-kk(1:swi.nG-2))/2;
                 %                 % DH: 11.12.20 limit k-value to 1000 yr-1
                 %                 k(k>1000)=1000;
@@ -2398,12 +2742,14 @@ classdef benthic_test
                     warning('F~=1!!');
                 end
                 
-                if(swi.flux)
-                    Fnonbioi = F.* swi.FOM_total; % Dom was
-                else
-                  	Fnonbioi = F.*( swi.C0_nonbio*(1-bsd.por)*bsd.w ); % NonBioturbated SWI
-                end
-                C0i = F.*swi.C0_nonbio;
+                Fnonbioi = F.* ( swi.C0*(1-bsd.por)*bsd.w ); % NonBioturbated SWI
+                C0i = F.*swi.C0;
+%                if(swi.flux)
+%                    Fnonbioi = F.* swi.FOM_total; % Dom was
+%                else
+%                  	Fnonbioi = F.*( swi.C0_nonbio*(1-bsd.por)*bsd.w ); % NonBioturbated SWI
+%                end
+%                C0i = F.*swi.C0_nonbio;
                 
                 % plot Fractions vs log(k)
                 plot_fractions = false;

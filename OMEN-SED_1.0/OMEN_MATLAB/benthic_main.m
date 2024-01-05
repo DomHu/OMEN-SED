@@ -46,7 +46,7 @@ classdef benthic_main < handle
         DICC1;                                  % DIC/C until zSO4 (mol/mol)
         DICC2;                                  % DIC/C below zSO4 (mol/mol)
         MC;                                     % CH4/C (mol/mol)
-        gamma=0.95;                           	% fraction of NH4 that is oxidised in oxic layer
+        gamma=0.9;                           	% fraction of NH4 that is oxidised in oxic layer
         gammaH2S=0.95;                         	% fraction of H2S that is oxidised in oxic layer
         gammaH2SFe=0.0;                       	% fraction of H2S that is oxidised with FeIII  (assume after zFeIII only sulfate reduction, as we don't know zSO4 yet)
         gammaFe2;                               % fraction of Fe2 that is oxidised in oxic layer, moved to Fe2-routine as calculated with S. vd Velde's fit to Cox and BW [O2])
@@ -171,7 +171,18 @@ classdef benthic_main < handle
             Dbio= 5.2*(10.0^(0.7624-0.0003972*wdepth));	
         end
         
+        function Dbio = biorate_Solan_MARCATS(wdepth)
+            % bioturbation coeff, cm^2/yr (after data from Solan et al. (2019) that's on the MARCAT grid)
+            % see:  /Documents/Projects/18_RECCAP2/OMEN/Bioturbation/Solan_ea_2019/make_empirical_fct.m
+            Dbio= 14.9998*(10.0^(0.8268-0.0005401*wdepth));	
+        end
         
+        function a = apparent_age(w)
+            % Continuum model parameter, apparent initial age , yr (after Boudreau and Ruddick, 1991) 
+%           a_Boudreau = 4970*exp(-0.0296/1000*w);	
+            % This one is from Sandra's review paper:
+            a = 10^(3.35-14.81*w);	
+        end       
         
     end
     
