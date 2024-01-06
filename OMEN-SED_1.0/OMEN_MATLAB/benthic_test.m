@@ -126,13 +126,13 @@ classdef benthic_test
             zbio_nan=0;
             zbio_good=0;
             
-            % old a-values from Pika et al. (2023) to start with
+            % load a-values from Pika et al. (2023) to start with
          	a_values_start = struct2array(load('./data/BC_calc_a_from_Jorgensen/a_value_local_Start.mat'));
 
             %% TODO FROM HERE - load the updated BCs from ./data/BC_calc_a_from_Jorgensen  -- check with run_OMEN_RCM_global how things are called!
-            Seafloor_Tmp = struct2array(load('./data/Tmp_BW_hr_updated.mat'));                             % BW temperature [°C]
-            load './data/O2_BW_WOA2018_hr_updated.mat'                  	% BW  O2 [muM = 10^-6 mol/kg]  -- need to convert into mol/cm^3 , i.e. *10^-3
-            load './data/NO3_BW_hr_updated.mat'                             % BW  NO3 [muM = 10^-6 mol/kg]  -- need to convert into mol/cm^3 , i.e. *10^-3
+            BC.Tmp = struct2array(load('./data/BC_calc_a_from_Jorgensen/BC_Tmp_Margin_updated.mat'));                             % BW temperature [°C]
+            BC.O2 = struct2array(load('./data/BC_calc_a_from_Jorgensen/BC_O2_Margin_updated.mat'));                   	% BW  O2 [muM = 10^-6 mol/kg]  -- need to convert into mol/cm^3 , i.e. *10^-3
+            BC.NO3 = struct2array(load('./data/BC_calc_a_from_Jorgensen/BC_NO3_Margin_updated.mat'));                             % BW  NO3 [muM = 10^-6 mol/kg]  -- need to convert into mol/cm^3 , i.e. *10^-3
             
 
             % error counters
@@ -188,14 +188,18 @@ classdef benthic_test
 %                for y = ystart:ystop
                     if ((isnan(toc(x,y))))    % check for toc = NaN
 
-                        toc(x,y)=NaN;
-                      	dxdy(x,y)   = NaN;
-                                               
+                      	dxdy(x,y)   = NaN;                                               
                         a_value_best(x,y) = NaN;
 
-
-                    else                        
-
+                    else
+                        
+                        % Here normal call: RUN OMEN-SED 
+                        % res=benthic_test.test_benthic(1,swi);
+                        % TODO: Do a new function (similar to benthic_test.test_benthic) 
+                        % for fitting DOU values with all the below in it
+                        % First give it all swi boundary consitions, see run_OMEN_RCM_global(exp_name, Zinf)
+                        
+                        % in RECCAP2:                        
                         res.swi.p_a=a_values_start(x,y);    % set first guess for a-value
                         res.bsd.wdepth = -water_depth(x,y);
                         if(SAR_Restreppo)
@@ -206,8 +210,7 @@ classdef benthic_test
                             end
                         else
                             res.bsd.w=benthic_main.sedrate(res.bsd.wdepth)*SA_coefficient;
-                        end
-                        
+                        end                        
 
                         if(Db_Middelburg)
                             res.bsd.Dbio=benthic_main.biorate(res.bsd.wdepth)*SA_coefficient;                       
@@ -229,12 +232,14 @@ classdef benthic_test
                         res.bsd.por=porosity_matrix_new(x,y)/100;  %porosity at SWI
                         
                         % initialize parameters of analytical solution
-                        conv=2.5/100*(1-res.bsd.por);   % convert wt% -> g/cm3 (total sediment)   -- this is what Sandra did for James
-                        conv=2.5/100;   % convert wt% -> g/cm3 (total sediment)     -- I think in my model I need it as bulk sediment because I apply *(1-por) when I calculate the flux in calcCflx() !!??
-                        res.swi.C0=toc(x,y)*conv;          % POC at SWI (wt% -> g/cm3(total sediment))
+%                        rho_sed_loc = 2.5;
+                        conv=rho_sed/100*(1-res.bsd.por);   % convert wt% -> g/cm3 (total sediment)   -- this is what Sandra did for James
+                        conv=rho_sed/100;   % convert wt% -> g/cm3 (total sediment)     -- I think in my model I need it as bulk sediment because I apply *(1-por) when I calculate the flux in calcCflx() !!??
+                        conv=res.bsd.rho_sed/(100*12);   % convert wt% -> mol/cm3 (total sediment)     -- I think in my model I need it as bulk sediment because I apply *(1-por) when I calculate the flux in calcCflx() !!??
+                        res.swi.C0=toc(x,y)*conv;          % POC at SWI (wt% -> mol/cm3 (total sediment))
                         
-                                                
-                        % initialize & calculate
+                        
+                         % initialize & calculate
                         res.zTOC_RCM = benthic_zTOC_RCM(res.bsd);
                         % Adding into on RCM for MultiG approach
                         [res.zTOC_RCM.k, res.swi.C0i, res.swi.Fnonbioi] = benthic_test.RCM(res.bsd, res.swi);
@@ -2744,6 +2749,7 @@ classdef benthic_test
                 
                 Fnonbioi = F.* ( swi.C0*(1-bsd.por)*bsd.w ); % NonBioturbated SWI
                 C0i = F.*swi.C0;
+%               in version before aligned with RECCAP2:                
 %                if(swi.flux)
 %                    Fnonbioi = F.* swi.FOM_total; % Dom was
 %                else
