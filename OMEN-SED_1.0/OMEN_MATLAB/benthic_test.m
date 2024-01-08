@@ -83,15 +83,17 @@ classdef benthic_test
         end
         
         
-    	function [res] = calc_a_from_Jorgensen_DOU(SAR_Restreppo, Db_Middelburg, string_out)
+    	function [res] = calc_a_from_Jorgensen_DOU(SAR_Restreppo, Db_Middelburg, string_out, Zinf)
             %% Calculate a values based on the DOU map of Jorgensen et al. (2022)
             %% Use all our updated boundary conditions, e.g., the Restreppo sedimentation rates, spatially explicit porosity values, zbio after Song et al., and new surface TOC wt%. 
             
+            % default call benthic_test.calc_a_from_Jorgensen_DOU(true, true, 'DOU_calculation', 800)
             
             % SAR_Restreppo:    true : use Restreppo data 
             %                   false : use Burwicz parameterization
             % Db_Middelburg:    true : use Middelburg parametrization
             %                   false : use Dbio extrapolated from Solan data (not good) 
+            % Zinf:             simulated sediment column depth (cm)
             
             zbio_fix = false;   % set this true to use zbio_global everywhere
             zbio_global=5.75;   % 5.75 cm (Teal et al., 2008) and 9.8 cm (Boudreau, 1998)
@@ -102,14 +104,26 @@ classdef benthic_test
             
             str_date = [datestr(date,11), datestr(date,5), datestr(date,7)];
             
-            string_out = [string_out  'Best_estimate_'];
             SA_coefficient = 1.0;
             
             lat = (89.875:-0.25:-89.875);
             long = (-179.875:0.25:179.875);
+            
+            % set default SWI model boundary conditions and flags           
+            swi = benthic_test.default_swi();
+            swi.Iron=false;                 % calculate Fe (true/false)
+
+        	swi.sed_column_depth = Zinf;    % use Zinf as bsd.zinf
+
+            swi.TwoG_OM_model = false;
+         	swi.flux = false;
+        	swi.BC_wdepth_flag = true;      % flag for existing water depth
+            swi.BC_sed_rate_flag = true; 	% flag for existing BC for sed-rate
+
  
+            %% 
             %__________________________________________________________________________
-            %   load data
+            %   load global data
             %__________________________________________________________________________
             toc = load('./data/BC_calc_a_from_Jorgensen/surfOC_matrix_2023_new_v01.csv');
             porosity_matrix_new = load('./data/BC_calc_a_from_Jorgensen/porosity_matrix_2023_new_v01.csv');
@@ -119,7 +133,12 @@ classdef benthic_test
             
             water_depth = load('./data/BC_calc_a_from_Jorgensen/bathymetry_matrix_new.csv');
             
-            DOU_mask_coast_filled = struct2array(load('./data/BC_calc_a_from_Jorgensen/DOU_mask_coast_filled.mat'));
+           
+            DOU_mask_coast_filled_IN = struct2array(load('./data/BC_calc_a_from_Jorgensen/DOU_mask_coast_filled.mat'));    % in mmol m-2 d-1
+            convert_concentration = 1/1000*100^(-2)*365;
+            DOU_mask_coast_filled =  DOU_mask_coast_filled_IN* convert_concentration;        % in mol cm-2 yr^-1
+            DOU_simulated_best = NaN(size(DOU_mask_coast_filled));
+            
             
             % zbio interpolated from Song et al. (2022)
             zbio_interpolated = struct2array(load('./data/BC_calc_a_from_Jorgensen/Bioturbation_depth_remapped_natural.mat'));
@@ -128,14 +147,19 @@ classdef benthic_test
             
             % load a-values from Pika et al. (2023) to start with
          	a_values_start = struct2array(load('./data/BC_calc_a_from_Jorgensen/a_value_local_Start.mat'));
+            a_values_best = NaN(size(a_values_start));
 
-            %% TODO FROM HERE - load the updated BCs from ./data/BC_calc_a_from_Jorgensen  -- check with run_OMEN_RCM_global how things are called!
-            BC.Tmp = struct2array(load('./data/BC_calc_a_from_Jorgensen/BC_Tmp_Margin_updated.mat'));                             % BW temperature [°C]
-            BC.O2 = struct2array(load('./data/BC_calc_a_from_Jorgensen/BC_O2_Margin_updated.mat'));                   	% BW  O2 [muM = 10^-6 mol/kg]  -- need to convert into mol/cm^3 , i.e. *10^-3
-            BC.NO3 = struct2array(load('./data/BC_calc_a_from_Jorgensen/BC_NO3_Margin_updated.mat'));                             % BW  NO3 [muM = 10^-6 mol/kg]  -- need to convert into mol/cm^3 , i.e. *10^-3
+            % load the updated BCs 
+            BC.Tmp = struct2array(load('./data/BC_calc_a_from_Jorgensen/BC_Tmp_Margin_updated.mat'));      	% BW temperature [°C]
+            O2_IN = struct2array(load('./data/BC_calc_a_from_Jorgensen/BC_O2_Margin_updated.mat'));       	% BW  O2 [muM = 10^-6 mol/kg]  -- need to convert into mol/cm^3 , i.e. *10^-3*10^-6
+            % cells with O2 = 0, set to 4 muM (anoxic consitions and pretty much the non-zero minimum of WOA O2 data)
+            BC.O2 = O2_IN;
+            BC.O2(O2_IN==0.0) = 4.0;
+            BC.NO3 = struct2array(load('./data/BC_calc_a_from_Jorgensen/BC_NO3_Margin_updated.mat'));   	% BW  NO3 [muM = 10^-6 mol/kg]  -- need to convert into mol/cm^3 , i.e. *10^-3*10^-6
             
 
-            % error counters
+            %% counters
+            DOU_iterations = NaN(size(DOU_mask_coast_filled));
             wrong_iter = 0;
           	wrong_iter_age = 0;
             zbioMatching_xy_GMD(1,:)=[0 0];
@@ -146,36 +170,26 @@ classdef benthic_test
            	debug.iter_zbioMatching_final = 0;      % counter for calculating the correct TOC profile after trying different methods
            	debug.iter_NEGATIVE_OXID = 0;           % counter for negative total OM oxidation
 
-
+            %% loop through lat - lon
             [m,n]=size(toc);
 
-            ncl = 1;
-            res.bsd = benthic_main(ncl);            
-         	res.bsd.zinf = 800;	
-
+%            res.swi = swi;
             
-            res.bsd.usescalarcode = ncl==1;
-            
-            swi = benthic_test.default_swi();
-            swi.TwoG_OM_model = false;
-         	swi.flux = false;
-
-            
-            %__________________________________________________________________________
-            %   set specific parameters
-            %__________________________________________________________________________
-            
-            res.swi = swi;
-            
-            xstart=1; %55;
-            xstop=m;  %55;        %lat
-            ystart=1;  % 6;
+            xstart=667;   %189;	% lat
+            xstop=m;            % lat
+            ystart=1;   %837;   % long
             ystop=n;  % 6;        %long (or the other way around- who knows!)
+            
+            % from here this comes from test_benthic():
+            ncl = 1;
 
             Restreppo_NaN = 0;
-            for x = 1:m
+            
+            for x = xstart:m
 %         	for x = xstart:xstop
-                x
+            	fprintf('\n');
+              	fprintf('xxxxxxxxxxxxxxxxxxxxxx \n');
+              	fprintf('Lat x = %i \n',  x);
                 % calculate volume
                 % convert deg to cm CODAS package (by E.Firing,et al.)
                 rlat = lat(x) * pi/180;
@@ -184,114 +198,119 @@ classdef benthic_test
                 p = 111415.13 * cos(rlat) - 94.55 * cos(3 * rlat);
                 dx = 0.25*p*100.0; %cm
                 
-                for y = 1:n
+                for y = ystart:n
 %                for y = ystart:ystop
                     if ((isnan(toc(x,y))))    % check for toc = NaN
 
                       	dxdy(x,y)   = NaN;                                               
-                        a_value_best(x,y) = NaN;
 
-                    else
+                    else	% valid boundary conditions: run OMEN
+                                            
+                        fprintf('Long y = %i \n',  y);
+
+                        % set local boundary conditions                         
+                        rho_sed_loc = 2.5;
+%                        conv=rho_sed/100*(1-res.bsd.por);   % convert wt% -> g/cm3 (total sediment)   -- this is what Sandra did for James
+%                        conv=rho_sed/100;   % convert wt% -> g/cm3 (total sediment)                
+                        conv=rho_sed_loc/(100*12);   % convert wt% -> mol/cm3 (total sediment)      -- I think OMEN needs TOC as bulk sediment because I apply *(1-por) when I calculate the flux in calcCflx() !!??
+                        swi.C0=toc(x,y)*conv;          % POC at SWI (wt% -> mol/cm3 (total sediment))
+
+                        swi.p_a=a_values_start(x,y);    % set first guess for a-value
+                        if(isnan(swi.p_a))
+                             swi.p_a=20;    % set to a default start value of 20
+                        end
+                        p_a_old = swi.p_a;
                         
-                        % Here normal call: RUN OMEN-SED 
-                        % res=benthic_test.test_benthic(1,swi);
-                        % TODO: Do a new function (similar to benthic_test.test_benthic) 
-                        % for fitting DOU values with all the below in it
-                        % First give it all swi boundary consitions, see run_OMEN_RCM_global(exp_name, Zinf)
-                        
-                        % in RECCAP2:                        
-                        res.swi.p_a=a_values_start(x,y);    % set first guess for a-value
-                        res.bsd.wdepth = -water_depth(x,y);
+                        swi.T = BC.Tmp(x,y);
+                        swi.O20 = BC.O2(x,y)*10^(-9);       % µmol/kg = 10^-6 mol/kg to mol/cm^3
+                        swi.NO30 = BC.NO3(x,y)*10^(-9);     % µmol/kg = 10^-6 mol/kg to mol/cm^3
+                                               
+                        swi.BC_wdepth = -water_depth(x,y);
+
                         if(SAR_Restreppo)
-                            res.bsd.w=SAR_Restreppo_data(x,y)*SA_coefficient;
-                            if(isnan(res.bsd.w))
-                                res.bsd.w=benthic_main.sedrate(res.bsd.wdepth)*SA_coefficient;
+                            swi.BC_sed_rate=SAR_Restreppo_data(x,y)*SA_coefficient;
+                            if(isnan(swi.BC_sed_rate))
+                                swi.BC_sed_rate=benthic_main.sedrate(res.bsd.wdepth)*SA_coefficient;
                                 Restreppo_NaN = Restreppo_NaN+1;
                             end
                         else
-                            res.bsd.w=benthic_main.sedrate(res.bsd.wdepth)*SA_coefficient;
+                            swi.BC_sed_rate=benthic_main.sedrate(swi.BC_wdepth)*SA_coefficient;
                         end                        
-
-                        if(Db_Middelburg)
-                            res.bsd.Dbio=benthic_main.biorate(res.bsd.wdepth)*SA_coefficient;                       
-                        else
-                            res.bsd.Dbio=benthic_main.biorate_Solan_MARCATS(res.bsd.wdepth)*SA_coefficient;    
-                        end
-                        res.bsd.zbio=zbio_interpolated(x,y)*SA_coefficient;
                         
-                        if(zbio_fix)
-                            res.bsd.zbio=zbio_global;   % 5.75 cm (Teal et al., 2008) and 9.8 cm (Boudreau, 1998)
+                        if(Db_Middelburg)
+                            swi.Dbio=benthic_main.biorate(swi.BC_wdepth)*SA_coefficient;                       
+                        else
+                            swi.Dbio=benthic_main.biorate_Solan_MARCATS(swi.BC_wdepth)*SA_coefficient;    
                         end
-                        if(isnan( res.bsd.zbio))
-                             res.bsd.zbio=zbio_global*SA_coefficient;  % set to zbio_global if no value
-                             zbio_nan=zbio_nan+1;
+                        
+                        swi.zbio=zbio_interpolated(x,y)*SA_coefficient;
+                        if(zbio_fix)
+                            swi.zbio=zbio_global;   % 5.75 cm (Teal et al., 2008) and 9.8 cm (Boudreau, 1998)
+                        end
+                        if(isnan(swi.zbio))
+                        	swi.zbio=zbio_global*SA_coefficient;  % set to zbio_global if no value
+                           	zbio_nan=zbio_nan+1;
                         else
                             zbio_good=zbio_good+1;
                         end
                         
-                        res.bsd.por=porosity_matrix_new(x,y)/100;  %porosity at SWI
+                        swi.por=porosity_matrix_new(x,y)/100;  %porosity at SWI
                         
-                        % initialize parameters of analytical solution
-%                        rho_sed_loc = 2.5;
-                        conv=rho_sed/100*(1-res.bsd.por);   % convert wt% -> g/cm3 (total sediment)   -- this is what Sandra did for James
-                        conv=rho_sed/100;   % convert wt% -> g/cm3 (total sediment)     -- I think in my model I need it as bulk sediment because I apply *(1-por) when I calculate the flux in calcCflx() !!??
-                        conv=res.bsd.rho_sed/(100*12);   % convert wt% -> mol/cm3 (total sediment)     -- I think in my model I need it as bulk sediment because I apply *(1-por) when I calculate the flux in calcCflx() !!??
-                        res.swi.C0=toc(x,y)*conv;          % POC at SWI (wt% -> mol/cm3 (total sediment))
+                        dxdy(x,y) = dx*dy;    % cm^2 per grid-cell
+                         
+                        % TODO: from here in while loop until DOU sufficiently close
+                        % 1. call new function here with local boundary conditions and calculate DOU
+                        % similar to res.benthic_test.test_benthic(1,swi);
+                        % but also set Dbio = 0 for simulated DOU
+                        % 2. compare estimated DOU with Jorgensen DOU
+                        % 3. change a parameter 
                         
-                        
-                         % initialize & calculate
-                        res.zTOC_RCM = benthic_zTOC_RCM(res.bsd);
-                        % Adding into on RCM for MultiG approach
-                        [res.zTOC_RCM.k, res.swi.C0i, res.swi.Fnonbioi] = benthic_test.RCM(res.bsd, res.swi);
-                        res = res.zTOC_RCM.calc(res.bsd,res.swi, res);
-                        
-                        dxdy(x,y)   = dx*dy;    % cm^2 per grid-cell
+                        % local DOU from Jorgensen
+                        DOU_local_Jorgensen = DOU_mask_coast_filled(x,y);   % postive values 
 
-                        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-                        %% calculate TOC fluxes 
-                     	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-                        %%%%%%%%%%%%%%%%%
-                        % flux through SWI (just for BE calculation - total value is way too high -- maybe a few very wrong grid-cells!?)
-                        [F_TOC_swi, F_TOC1_swi] = res.zTOC_RCM.calcCflx(0, res.bsd, res.swi, res);
-                        Flux_TOC_swi(x,y) = nansum(F_TOC1_swi)*dx*dy;  % 
-                        Flux_TOC_swi_perArea(x,y) = nansum(F_TOC1_swi);  % 
-
+                        %%%%%%%%%%%%%%%%%%%%%%%%%
+                        % RUN OMEN-SED
+                        res = benthic_test.calc_DOU(1,swi); 
+                        DOU_iterations_local = 1;
+                        DOU_simulated = -res.flxswiO2_DOU;    % in mol cm-2 yr^-1   (change sign from negative to positiv)
+                       	DOU_frac_simulated = DOU_simulated/DOU_local_Jorgensen;
+                       %%%%%%%%%%%%%%%%%%%%%%%%%
                         
-                        %%%%%%%%%%%%%%%%%
-                        % through different depth levels - calculate maps of BE and Fluxes                         
-                        for i=1:length(depth_levels)
-
-                            [F_TOC_inf, F_TOC1_inf] = res.zTOC_RCM.calcCflx(depth_levels(i), res.bsd, res.swi, res);
-                            if(nansum(F_TOC1_inf)<nansum(F_TOC1_swi) | nansum(F_TOC1_inf) >0 )   % check if flu in sedimentis larger at SWI
-                              %  nansum(F_TOC1_inf);
-                                wrong_iter=wrong_iter+1;
-                                F_TOC1_inf=0;
-                            end
-                            Flux_depth{i}(x,y) = nansum(F_TOC1_inf)*dx*dy;  %   in g/yr
-                         	Flux_depth_inTg{i}(x,y) = Flux_depth{i}(x,y)*1e-12;   %   in Tg/yr
-                            Flux_depth_perArea{i}(x,y) = nansum(F_TOC1_inf);  %   in g /(cm^2 yr)
-                            BE_depth{i}(x,y) = nansum(F_TOC1_inf)/nansum(F_TOC1_swi)*100;                            
+                        % check if TOC profile is wrong
+                        if(res.zbio_Matching_fails)
+                            error('zbio_Matching_fails, use a different a-value. Location; x=%i, y=%i ', x,y);
+                            % Todo: choose a different a-value
+                            swi.p_a = swi.p_a*1.1;
                         end
-
-                        % through different age-levels - calculate maps of BE and Fluxes             
-                        for j=1:length(age_levels)
-                            %  age_levels = [150 1000 5000];  % in yr    
-                            % NOTE: add zbio as the age related depth-layers start with 0 = zbio
-                            [F_TOC_inf, F_TOC1_inf] = res.zTOC_RCM.calcCflx(Age_layers{j}(x,y) +  res.bsd.zbio, res.bsd, res.swi, res);
-                            if(nansum(F_TOC1_inf)<nansum(F_TOC1_swi) | nansum(F_TOC1_inf) > 0 )   % check if flu in sedimentis larger at SWI
-                              %  nansum(F_TOC1_inf);
-                                wrong_iter_age=wrong_iter_age+1;
-                                F_TOC1_inf=0;
+                                               
+                        % while calculated DOU not good enough OR TOC profile matching problem
+                        % run OMEN with updated a-value
+                        while (abs(DOU_frac_simulated - 1.0) > 0.05  || res.zbio_Matching_fails)  % while more than 10% difference to observed DOU, keep changing a-value
+                        	if(res.zbio_Matching_fails)
+                            	error('zbio_Matching_fails, use a different a-value. Location; x=%i, y=%i ', x,y); 
                             end
-                            Flux_age{j}(x,y) = nansum(F_TOC1_inf)*dx*dy;  %   in g/yr
-                         	Flux_age_inTg{j}(x,y) = Flux_age{j}(x,y)*1e-12;   %   in Tg/yr
-                            Flux_age_perArea{j}(x,y) = nansum(F_TOC1_inf);  %   in g /(cm^2 yr)
-                            BE_age{j}(x,y) = nansum(F_TOC1_inf)/nansum(F_TOC1_swi)*100;                            
-                        end                        
+                            swi.p_a = swi.p_a*DOU_frac_simulated;
+%                             if(DOU_simulated > DOU_local_Jorgensen  || res.zbio_Matching_fails)
+%                                 % decrease reactivity (i.e., increase a-value)
+%                                 swi.p_a = swi.p_a*1.1;
+%                             else
+%                                 % increase reactivity (i.e., decrease a-value)
+%                                 swi.p_a = swi.p_a*0.9;
+%                                 
+%                             end
+                            % RUN OMEN with updated a-value
+                            res = benthic_test.calc_DOU(1,swi);
+                            DOU_iterations_local = DOU_iterations_local + 1;
+                            DOU_simulated = -res.flxswiO2_DOU;    % in mol cm-2 yr^-1   (change sign from negative to positiv)
+                            DOU_frac_simulated = DOU_simulated/DOU_local_Jorgensen;
+                            fprintf('it. %i \n',  DOU_iterations_local);
+                        end
+                        DOU_iterations(x,y) = DOU_iterations_local;
+                        a_values_best(x,y) = swi.p_a;
+                        DOU_simulated_best(x,y) = DOU_simulated;
+                        fprintf('\n');
 
                     end
-                    
                     
                 end
             end
@@ -299,132 +318,16 @@ classdef benthic_test
             wrong_iter_age
            	Restreppo_NaN
 
-            % calculate global total burial per depth level  in Tg/yr
-            for i=1:length(depth_levels)
-                Total_burial_depth(i) = nansum(nansum(Flux_depth{i}))/10^(12);
-            end
-            % calculate global total burial per age level  in g/yr
-            for i=1:length(age_levels)
-                Total_burial_age(i) = nansum(nansum(Flux_age{i}))/10^(12);
-            end                    
-            
-            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            % save results
-            save(['output/Flux_TOC_swi_', string_out, str_date '.mat'] , 'Flux_TOC_swi');            
 
-%            save(['output/BE_depth_', string_out, str_date '.mat'] , 'BE_depth');
-            save(['output/' str_date '_Flux_depth_', string_out '.mat'] , 'Flux_depth');                   %   in g/yr
-            save(['output/' str_date '_Flux_depth_inTg_', string_out '.mat'] , 'Flux_depth_inTg');         %   in Tg/yr
-            save(['output/' str_date '_Flux_depth_perArea', string_out '.mat'] , 'Flux_depth_perArea');    %   in g /(cm^2 yr)                      
-         	save(['output/' str_date '_Total_burial_depth_', string_out '.mat'] , 'Total_burial_depth');
-            
-%         	save(['output/BE_age_', string_out, str_date '.mat'] , 'BE_age');
-            save(['output/' str_date '_Flux_age_', string_out '.mat'] , 'Flux_age');                   %   in g/yr
-            save(['output/' str_date '_Flux_age_inTg_', string_out '.mat'] , 'Flux_age_inTg');         %   in Tg/yr
-            save(['output/' str_date '_Flux_age_perArea', string_out '.mat'] , 'Flux_age_perArea');    %   in g /(cm^2 yr)                      
-         	save(['output/' str_date '_Total_burial_age_', string_out '.mat'] , 'Total_burial_age');
-            
-            %%  Calculate the TOC burial fluxes for different areas  (i.e., MARCAT, EEZ, Longhurst)            
-            
-            % 45 MARCAT regions (only ~39 with TOC values)
-            load('MARCAT_Regions_UPDATE/TOC_polygon_MARCAT.mat');
-          	S = shaperead('./MARCAT_Regions_UPDATE/Regions_V2.shp');
-            for i=1:length(S)
-                Mean_lat(i)=nanmean(S(i).Y);
-            end
-
-            if true % was  false
-            [TOC_burial_per_OceanRegion, Area_per_OceanRegion] = benthic_test.calc_area_burial(Flux_depth_inTg, dxdy, TOC_polygon_MARCAT);
-            Tr_TOC_burial_per_OceanRegion= TOC_burial_per_OceanRegion';
-            Tr_Area_per_OceanRegion=Area_per_OceanRegion';
-            Table_Ocean_region = array2table([vertcat(S.OBJECTID) Tr_TOC_burial_per_OceanRegion Tr_Area_per_OceanRegion, Tr_TOC_burial_per_OceanRegion(:,5)./Tr_Area_per_OceanRegion(:).*10^9, Mean_lat', vertcat(S.MARCAT)]);
-            Table_Ocean_region.Properties.VariableNames(1:12) = {'OBJECTID','1cm','10cm','20cm','50cm', '100cm', '200cm','500cm', 'Size (km2)', 'Area flx 1m','Mean lat','MARCAT'};
-            save(['output/' str_date '_Table_OceanRegion_MARCAT_45regions', string_out '.mat'] , 'Table_Ocean_region');
-            end
-
-            [TOC_burial_per_OceanRegion_depth, Area_per_OceanRegion_depth] = benthic_test.calc_area_burial(Flux_age_inTg, dxdy, TOC_polygon_MARCAT);
-            Tr_TOC_burial_per_OceanRegion_depth= TOC_burial_per_OceanRegion_depth';
-            Tr_Area_per_OceanRegion_depth=Area_per_OceanRegion_depth';
-            Table_Ocean_region_age = array2table([vertcat(S.OBJECTID) Tr_TOC_burial_per_OceanRegion_depth Tr_Area_per_OceanRegion_depth, Mean_lat', vertcat(S.MARCAT)]);
-            Table_Ocean_region_age.Properties.VariableNames(1:7) = {'OBJECTID','100years','500years','1000years', 'Size (km2)','Mean lat','MARCAT'};
-            save(['output/' str_date '_Table_OceanRegion_MARCAT_45regions_age', string_out '.mat'] , 'Table_Ocean_region_age');
-            
-            if true % was false
-            % MARCAT areas:
-            % 1: EBC, 2: WBC, 3: Indian, 4: Sub-Polar, 5: Polar, 6: Marginal, 7: Tropical                        
-            load('MARCAT_Regions_UPDATE/TOC_MARCAT.mat', 'TOC_MARCAT');
-            
-            if  true % was false
-            [TOC_burial_per_OceanRegion, Area_per_OceanRegion] = benthic_test.calc_area_burial(Flux_depth_inTg, dxdy, TOC_MARCAT);
-            Tr_TOC_burial_per_OceanRegion= TOC_burial_per_OceanRegion';
-            Tr_Area_per_OceanRegion=Area_per_OceanRegion';
-            Table_Ocean_region = array2table([(1:7)' ,Tr_TOC_burial_per_OceanRegion Tr_Area_per_OceanRegion, Tr_TOC_burial_per_OceanRegion(:,5)./Tr_Area_per_OceanRegion(:).*10^9]);
-            Table_Ocean_region.Properties.VariableNames(1:10) = {'MARCAT','1cm','10cm','20cm','50cm', '100cm', '200cm','500cm', 'Size (km2)', 'Area flx 1m'};
-            save(['output/' str_date '_Table_OceanRegion_MARCAT', string_out '.mat'] , 'Table_Ocean_region');
-            end
-            [TOC_burial_per_OceanRegion_age, Area_per_OceanRegion_age] = benthic_test.calc_area_burial(Flux_age_inTg, dxdy, TOC_MARCAT);
-            Tr_TOC_burial_per_OceanRegion_age= TOC_burial_per_OceanRegion_age';
-            Tr_Area_per_OceanRegion_age=Area_per_OceanRegion_age';
-            Table_Ocean_region_age = array2table([(1:7)' ,Tr_TOC_burial_per_OceanRegion_age Tr_Area_per_OceanRegion_age]);
-            Table_Ocean_region_age.Properties.VariableNames(1:5) = {'MARCAT','100years','500years','1000years', 'Size (km2)'};
-            save(['output/' str_date '_Table_OceanRegion_MARCAT_age', string_out '.mat'] , 'Table_Ocean_region_age');
-            
-            
-            % Longhurst areas:
-          	load('longhurst_v4_2010/TOC_polygon_Longhurst.mat')
-            S = shaperead('./longhurst_v4_2010/Longhurst_world_v4_2010.shp');
- 
-            [TOC_burial_per_OceanRegion, Area_per_OceanRegion] = benthic_test.calc_area_burial(Flux_depth_inTg, dxdy, TOC_polygon_Longhurst);            
-            Tr_TOC_burial_per_OceanRegion= TOC_burial_per_OceanRegion';
-            Tr_Area_per_OceanRegion=Area_per_OceanRegion';
-           	Table_Ocean_region = array2table([(1:length(S))' Tr_TOC_burial_per_OceanRegion Tr_Area_per_OceanRegion, Tr_TOC_burial_per_OceanRegion(:,5)./Tr_Area_per_OceanRegion(:).*10^9]);
-            Table_Ocean_region.Properties.VariableNames(1:10) = {'OBJECTID','1cm','10cm','20cm','50cm', '100cm', '200cm','500cm', 'Size (km2)', 'Area flx 1m'};
-            save(['output/' str_date '_Table_OceanRegion_Longhurst', string_out '.mat'] , 'Table_Ocean_region');
-
-            [TOC_burial_per_OceanRegion_age, Area_per_OceanRegion_age] = benthic_test.calc_area_burial(Flux_age_inTg, dxdy, TOC_polygon_Longhurst);            
-            Tr_TOC_burial_per_OceanRegion_age= TOC_burial_per_OceanRegion_age';
-            Tr_Area_per_OceanRegion_age=Area_per_OceanRegion_age';
-           	Table_Ocean_region_age = array2table([(1:length(S))' Tr_TOC_burial_per_OceanRegion_age Tr_Area_per_OceanRegion_age]);
-            Table_Ocean_region_age.Properties.VariableNames(1:5) = {'OBJECTID','100years','500years','1000years', 'Size (km2)'};
-            save(['output/' str_date '_Table_OceanRegion_Longhurst_age', string_out '.mat'] , 'Table_Ocean_region_age');
-            
-
-            % EEZ
-            S_EEZ = shaperead('./EEZ/eez_v11.shp');
-            
-            % EEZ countries code 1:157
-          	load('EEZ/TOC_EEZ_Country.mat')
-            
-            [TOC_burial_per_OceanRegion, Area_per_OceanRegion] = benthic_test.calc_area_burial(Flux_depth_inTg, dxdy, TOC_EEZ_Country);
-            Tr_TOC_burial_per_OceanRegion= TOC_burial_per_OceanRegion';
-            Tr_Area_per_OceanRegion=Area_per_OceanRegion';            
-           	Table_Ocean_region = array2table([(1:157)' Tr_TOC_burial_per_OceanRegion Tr_Area_per_OceanRegion, Tr_TOC_burial_per_OceanRegion(:,5)./Tr_Area_per_OceanRegion(:).*10^9]);
-            Table_Ocean_region.Properties.VariableNames(1:10) = {'Country_ID','1cm','10cm','20cm','50cm', '100cm', '200cm','500cm', 'Size (km2)', 'Area flx 1m'};
-            save(['output/' str_date '_Table_OceanRegion_EEZ', string_out '.mat'] , 'Table_Ocean_region');
-  
-            [TOC_burial_per_OceanRegion_age, Area_per_OceanRegion_age] = benthic_test.calc_area_burial(Flux_age_inTg, dxdy, TOC_EEZ_Country);
-            Tr_TOC_burial_per_OceanRegion_age= TOC_burial_per_OceanRegion_age';
-            Tr_Area_per_OceanRegion_age=Area_per_OceanRegion_age';            
-           	Table_Ocean_region_age = array2table([(1:157)' Tr_TOC_burial_per_OceanRegion_age Tr_Area_per_OceanRegion_age]);
-            Table_Ocean_region_age.Properties.VariableNames(1:5) = {'Country_ID','100years','500years','1000years', 'Size (km2)'};
-            save(['output/' str_date '_Table_OceanRegion_EEZ_age', string_out '.mat'] , 'Table_Ocean_region_age');
-  
-            end
-            % This is all tiny EEZ territories (above they are combined per country)
-            if false    
-                % EEZ territories:
-                load('EEZ/TOC_polygon_EEZ.mat')
-
-                [TOC_burial_per_OceanRegion, Area_per_OceanRegion] = benthic_test.calc_area_burial(Flux_depth_inTg, dxdy, TOC_polygon_EEZ);
-                Tr_TOC_burial_per_OceanRegion= TOC_burial_per_OceanRegion';
-                Tr_Area_per_OceanRegion=Area_per_OceanRegion';
-                Table_Ocean_region = array2table([(1:length(S_EEZ))' Tr_TOC_burial_per_OceanRegion Tr_Area_per_OceanRegion, Tr_TOC_burial_per_OceanRegion(:,5)./Tr_Area_per_OceanRegion(:).*10^9]);
-                Table_Ocean_region.Properties.VariableNames(1:10) = {'TERRITORY_ID','1cm','10cm','20cm','50cm', '100cm', '200cm','500cm', 'Size (km2)', 'Area flx 1m'};
-                save(['output/' str_date '_Table_OceanRegion_EEZ_Territory', string_out '.mat'] , 'Table_Ocean_region');
-            end
             
             zbio_nan
             zbio_good
+            
+            % save data            
+            save(['./data/BC_calc_a_from_Jorgensen/' str_date '_a_values_best_' string_out '.mat'] , 'a_values_best')
+            save(['./data/BC_calc_a_from_Jorgensen/' str_date '_DOU_iterations_' string_out '.mat'] , 'DOU_iterations')
+            save(['./data/BC_calc_a_from_Jorgensen/' str_date '_DOU_simulated_best_' string_out '.mat'] , 'DOU_simulated_best')
+
         end
 
         
@@ -1666,6 +1569,75 @@ classdef benthic_test
             end     % Check TOC matching at zbio
         end
         
+
+       function res = calc_DOU( ncl, swi )
+            
+            % counters for problems in calculation
+            res.iter_fun6 = 0;      % boundaries have same sign -> reduce gammaFe2
+            
+            if nargin < 1
+                ncl = 1;
+            end
+            
+            res.bsd.zinf = swi.sed_column_depth;
+
+            if(swi.BC_wdepth_flag)
+                res.bsd = benthic_main(ncl, swi.BC_wdepth, swi.por);
+            else
+                res.bsd = benthic_main(ncl);
+            end
+            res.bsd.usescalarcode = ncl==1;
+            
+            if(swi.BC_sed_rate_flag)
+                res.bsd.w = swi.BC_sed_rate;               
+            end
+                        
+            if nargin < 2 || isempty(swi)
+                swi = benthic_test.default_swi();
+            end
+            
+            if ncl > 1  % set up O2 gradient for testing
+                O20 = swi.O20;
+                for i = 1:ncl
+                    swi.O20(i) = 10*(i-1)/(ncl-1)*O20;
+                end
+            end
+            
+            res.swi = swi;
+            
+            % initialize then calculate
+         	res.zTOC_RCM = benthic_zTOC_RCM(res.bsd);
+            
+
+            % Adding into on RCM for MultiG approach
+
+        	[res.zTOC_RCM.k, res.swi.C0i, res.swi.Fnonbioi] = benthic_test.RCM(res.bsd, res.swi);
+            swi.C0i = res.swi.C0i;
+            res = res.zTOC_RCM.calc(res.bsd,res.swi, res);
+
+            
+            % % Check TOC matching at zbio
+            % If is is not correct: give NaNs back
+            if(res.zbio_Matching_fails)
+                % The TOC profile is wrong!Try different a value!
+                res.flxswiO2_DOU = NaN;
+            else                
+                res.zO2 = benthic_zO2(res.bsd, res.swi);
+                if(res.swi.O20<=0.0)
+                        res.zox=0.0;
+                        res.flxzox = 0.0;
+                        res.conczox = 0.0;
+                        res.flxswiO2=0.0;
+                        res.zxf=0.0;
+                        res.flxswiO2_DOU = 0.0;
+                else
+                        res = res.zO2.calc(res.bsd, res.swi, res);
+                        res.flxswiO2_DOU;    % in mol cm-2 yr^-1
+                    
+                end
+                
+            end     % Check TOC matching at zbio
+        end
         
         
         function res = calculate_meanTOC( ncl, swi )

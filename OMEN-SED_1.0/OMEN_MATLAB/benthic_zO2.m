@@ -60,7 +60,7 @@ classdef benthic_zO2
             
             [flxzox, conczox, flxswiO2, r] = obj.calcbc(r.zox, bsd, swi, r, bctype);
             %format longEng
-            %flxswiO2
+            r.flxswiO2_DOU = flxswiO2;
             %advflux0 = bsd.por.*bsd.w.*(swi.O20)
             %advfluxinf = bsd.por.*bsd.w.*(conczinf)
             flxswiO2 = flxswiO2 - bsd.por.*bsd.w.*(swi.O20-conczinf);
