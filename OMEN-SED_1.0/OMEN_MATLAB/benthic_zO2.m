@@ -36,7 +36,14 @@ classdef benthic_zO2
             [flxzox, conczinf, flxswi,rtmp] = obj.calcbc(bsd.zinf, bsd, swi, r, 2);
             
             if bsd.usescalarcode
-                if fun0 >= 0   % i.e. zero oxygen at swi bc O2 flows into sediments (so -)
+                if (isnan(fun0) || isnan(funzinf))
+                    bctype = NaN;       % calculation of zox not possible
+                    r.zox = NaN;
+                    r.flxswiO2_DOU = NaN;
+                    r.flxzox = NaN;
+                    r.conczox = NaN;
+                    r.flxswiO2 = NaN;
+                elseif fun0 >= 0   % i.e. zero oxygen at swi bc O2 flows into sediments (so -)
                     r.zox = 0;
                     bctype = 1;       	% BC: zero concentration
                     conczinf = 0.0;
@@ -57,21 +64,21 @@ classdef benthic_zO2
                 bctype = 1*~lzinf + 2*lzinf;
                 r.zox  = 0*lz0 + bsd.zinf.*lzinf + zox.*(~lz0 & ~lzinf); % project out appropriate solution
             end
-            
-            [flxzox, conczox, flxswiO2, r] = obj.calcbc(r.zox, bsd, swi, r, bctype);
-            %format longEng
-            r.flxswiO2_DOU = flxswiO2;
-            %advflux0 = bsd.por.*bsd.w.*(swi.O20)
-            %advfluxinf = bsd.por.*bsd.w.*(conczinf)
-            flxswiO2 = flxswiO2 - bsd.por.*bsd.w.*(swi.O20-conczinf);
-            r.flxzox = flxzox;
-            r.conczox = conczox;
-            r.flxswiO2 = flxswiO2;
-            
-            % OUTPUT FOR FLUX of reduxed substances at z_ox
-            Fredzox = obj.calcFO2(r.zox,bsd, swi, r);
-%            fprintf('zox = %g Approx F_O2 flux (mol cm^{-2} yr^{-1}) %g \n',  r.zox, Fredzox);
-            
+            if(~isnan(bctype))  % if calculatio of zox was possible
+                [flxzox, conczox, flxswiO2, r] = obj.calcbc(r.zox, bsd, swi, r, bctype);
+                %format longEng
+                r.flxswiO2_DOU = flxswiO2;
+                %advflux0 = bsd.por.*bsd.w.*(swi.O20)
+                %advfluxinf = bsd.por.*bsd.w.*(conczinf)
+                flxswiO2 = flxswiO2 - bsd.por.*bsd.w.*(swi.O20-conczinf);
+                r.flxzox = flxzox;
+                r.conczox = conczox;
+                r.flxswiO2 = flxswiO2;
+
+                % OUTPUT FOR FLUX of reduxed substances at z_ox
+                Fredzox = obj.calcFO2(r.zox,bsd, swi, r);
+    %            fprintf('zox = %g Approx F_O2 flux (mol cm^{-2} yr^{-1}) %g \n',  r.zox, Fredzox);
+            end
         end
         
         function [flxzox, conczox, flxswi,r] = calcbc(obj, zox, bsd, swi, r, bctype)

@@ -40,19 +40,21 @@ classdef benthic_test
             swi.Iron=false;                                      % calculate Fe (true/false)
             
             % for 2G-model
-            swi.C01_nonbio= 0.7*1e-2/12*bsd.rho_sed;            % TOC concentration at SWI (wt%) -> (mol/cm^3 solid phase)
-            swi.C02_nonbio= 0.3*1e-2/12*bsd.rho_sed;            % TOC concentration at SWI (wt%) -> (mol/cm^3 solid phase)
-            swi.Fnonbio1 =  swi.C01_nonbio*(1-bsd.por)*bsd.w; %0.5*6.2e-3/100^2*365;    % swi.C01_nonbio*(1-bsd.por)*bsd.w;    % calculate flux [mol/(cm2 yr)] according non-bioturbated flux
-            swi.Fnonbio2 =  swi.C02_nonbio*(1-bsd.por)*bsd.w; %0.5*6.2e-3/100^2*365;    % swi.C02_nonbio*(1-bsd.por)*bsd.w;    % calculate flux [mol/(cm2 yr)] according non-bioturbated flux
-            swi.C01 = swi.C01_nonbio;                           % resulting bioturbated SWI-concentration, to be calculated in benthic_zTOC.m
-            swi.C02 = swi.C02_nonbio;                           % resulting bioturbated SWI-concentration, to be calculated in benthic_zTOC.m
-            
+            swi.TwoG_OM_model = false;
+            if (swi.TwoG_OM_model)
+                swi.C01_nonbio= 0.7*1e-2/12*bsd.rho_sed;            % TOC concentration at SWI (wt%) -> (mol/cm^3 solid phase)
+                swi.C02_nonbio= 0.3*1e-2/12*bsd.rho_sed;            % TOC concentration at SWI (wt%) -> (mol/cm^3 solid phase)
+                swi.Fnonbio1 =  swi.C01_nonbio*(1-bsd.por)*bsd.w; %0.5*6.2e-3/100^2*365;    % swi.C01_nonbio*(1-bsd.por)*bsd.w;    % calculate flux [mol/(cm2 yr)] according non-bioturbated flux
+                swi.Fnonbio2 =  swi.C02_nonbio*(1-bsd.por)*bsd.w; %0.5*6.2e-3/100^2*365;    % swi.C02_nonbio*(1-bsd.por)*bsd.w;    % calculate flux [mol/(cm2 yr)] according non-bioturbated flux
+                swi.C01 = swi.C01_nonbio;                           % resulting bioturbated SWI-concentration, to be calculated in benthic_zTOC.m
+                swi.C02 = swi.C02_nonbio;                           % resulting bioturbated SWI-concentration, to be calculated in benthic_zTOC.m
+            end
             % for nG-model
             swi.nG = 500;
             swi.p_a = 0.1;
             swi.p_nu = 0.151;
             swi.C0 = 1.0 * 1e-2/12*bsd.rho_sed;                 % TOC concentration at SWI (wt%) -> (mol/cm^3 bulk phase)
-            swi.TOCwt_SWI = 4.5;
+            swi.TOCwt_SWI = NaN;
             swi.C0_nonbio = NaN; %swi.TOCwt_SWI * 1e-2/12*bsd.rho_sed;                 % TOC concentration at SWI (wt%) -> (mol/cm^3 bulk phase)
 
             swi.FOM_total = NaN; %3.91140e-003;                                       % In case a total settling flux of OM is, specify this here and set swi.flux = true; [Note: not tested] 
@@ -95,6 +97,9 @@ classdef benthic_test
             %                   false : use Dbio extrapolated from Solan data (not good) 
             % Zinf:             simulated sediment column depth (cm)
             
+            print_iterations = false; 
+            max_DOU_iterations = 500;
+            
             zbio_fix = false;   % set this true to use zbio_global everywhere
             zbio_global=5.75;   % 5.75 cm (Teal et al., 2008) and 9.8 cm (Boudreau, 1998)
                         
@@ -115,7 +120,7 @@ classdef benthic_test
 
         	swi.sed_column_depth = Zinf;    % use Zinf as bsd.zinf
 
-            swi.TwoG_OM_model = false;
+%            swi.TwoG_OM_model = false;
          	swi.flux = false;
         	swi.BC_wdepth_flag = true;      % flag for existing water depth
             swi.BC_sed_rate_flag = true; 	% flag for existing BC for sed-rate
@@ -131,8 +136,9 @@ classdef benthic_test
             % load Restreppo SAR
             SAR_Restreppo_data = load('./data/BC_calc_a_from_Jorgensen/Restreppo_sar_matrix_2023-09-21_new.csv');            
             
-            water_depth = load('./data/BC_calc_a_from_Jorgensen/bathymetry_matrix_new.csv');
-            
+            water_depth_all = load('./data/BC_calc_a_from_Jorgensen/bathymetry_matrix_new.csv');
+            water_depth = water_depth_all;
+            water_depth(isnan(toc))=NaN;
            
             DOU_mask_coast_filled_IN = struct2array(load('./data/BC_calc_a_from_Jorgensen/DOU_mask_coast_filled.mat'));    % in mmol m-2 d-1
             convert_concentration = 1/1000*100^(-2)*365;
@@ -160,9 +166,9 @@ classdef benthic_test
 
             %% counters
             DOU_iterations = NaN(size(DOU_mask_coast_filled));
-            wrong_iter = 0;
-          	wrong_iter_age = 0;
-            zbioMatching_xy_GMD(1,:)=[0 0];
+            DOU_iterations_failed = 0;
+            DOU_iterations_failed_xy(1,:)=[0 0];
+            
             zbioMatching_xy_final(1,:)=[0 0];
          	NEGATIVE_OXID_xy(1,:)=[0 0];
 
@@ -175,8 +181,8 @@ classdef benthic_test
 
 %            res.swi = swi;
             
-            xstart=667;   %189;	% lat
-            xstop=m;            % lat
+            xstart=1;  %213;   %189;	% lat
+            xstop=m;   %230         % lat
             ystart=1;   %837;   % long
             ystop=n;  % 6;        %long (or the other way around- who knows!)
             
@@ -185,7 +191,7 @@ classdef benthic_test
 
             Restreppo_NaN = 0;
             
-            for x = xstart:m
+            for x = xstart:xstop   % m
 %         	for x = xstart:xstop
             	fprintf('\n');
               	fprintf('xxxxxxxxxxxxxxxxxxxxxx \n');
@@ -198,7 +204,7 @@ classdef benthic_test
                 p = 111415.13 * cos(rlat) - 94.55 * cos(3 * rlat);
                 dx = 0.25*p*100.0; %cm
                 
-                for y = ystart:n
+                for y = ystart:ystop   %n
 %                for y = ystart:ystop
                     if ((isnan(toc(x,y))))    % check for toc = NaN
 
@@ -206,20 +212,20 @@ classdef benthic_test
 
                     else	% valid boundary conditions: run OMEN
                                             
-                        fprintf('Long y = %i \n',  y);
+                        fprintf('Lat x = %i; Long y = %i \n', x, y);
 
                         % set local boundary conditions                         
                         rho_sed_loc = 2.5;
 %                        conv=rho_sed/100*(1-res.bsd.por);   % convert wt% -> g/cm3 (total sediment)   -- this is what Sandra did for James
-%                        conv=rho_sed/100;   % convert wt% -> g/cm3 (total sediment)                
+%                        conv=rho_sed/100;   % convert wt% -> g/cm3 (total sediment)       
+                        swi.TOCwt_SWI = toc(x,y);       % SWI TOC wt%
                         conv=rho_sed_loc/(100*12);   % convert wt% -> mol/cm3 (total sediment)      -- I think OMEN needs TOC as bulk sediment because I apply *(1-por) when I calculate the flux in calcCflx() !!??
-                        swi.C0=toc(x,y)*conv;          % POC at SWI (wt% -> mol/cm3 (total sediment))
+                        swi.C0=swi.TOCwt_SWI*conv;          % POC at SWI (wt% -> mol/cm3 (total sediment))
 
                         swi.p_a=a_values_start(x,y);    % set first guess for a-value
                         if(isnan(swi.p_a))
-                             swi.p_a=20;    % set to a default start value of 20
+                             swi.p_a=10;    % set to a default start value of 10
                         end
-                        p_a_old = swi.p_a;
                         
                         swi.T = BC.Tmp(x,y);
                         swi.O20 = BC.O2(x,y)*10^(-9);       % µmol/kg = 10^-6 mol/kg to mol/cm^3
@@ -273,37 +279,66 @@ classdef benthic_test
                         res = benthic_test.calc_DOU(1,swi); 
                         DOU_iterations_local = 1;
                         DOU_simulated = -res.flxswiO2_DOU;    % in mol cm-2 yr^-1   (change sign from negative to positiv)
-                       	DOU_frac_simulated = DOU_simulated/DOU_local_Jorgensen;
+                        if(print_iterations)
+                                fprintf('it = %i; a = %d ; DOU_sim = %d: DOU_frac = %d \n',  DOU_iterations_local, swi.p_a, DOU_simulated, DOU_simulated/DOU_local_Jorgensen);
+                        end
+                        if(DOU_simulated <= 0.0 || isnan(DOU_simulated))
+                            DOU_simulated = NaN;   % use 20% larger a-value in next step
+                          	DOU_frac_simulated = NaN;
+%                         	DOU_frac_simulated = 10/swi.p_a;    % set next p_a to 10.0
+                        else
+                            DOU_frac_simulated = DOU_simulated/DOU_local_Jorgensen;
+                        end
+
                        %%%%%%%%%%%%%%%%%%%%%%%%%
                         
                         % check if TOC profile is wrong
                         if(res.zbio_Matching_fails)
                             error('zbio_Matching_fails, use a different a-value. Location; x=%i, y=%i ', x,y);
-                            % Todo: choose a different a-value
-                            swi.p_a = swi.p_a*1.1;
+                            % set next p_a to 10.0
+                            DOU_simulated = NaN;                           
                         end
                                                
                         % while calculated DOU not good enough OR TOC profile matching problem
                         % run OMEN with updated a-value
-                        while (abs(DOU_frac_simulated - 1.0) > 0.05  || res.zbio_Matching_fails)  % while more than 10% difference to observed DOU, keep changing a-value
+                        while (abs(DOU_frac_simulated - 1.0) > 0.05  || isnan(DOU_simulated))  % while more than 10% difference to observed DOU, keep changing a-value
                         	if(res.zbio_Matching_fails)
                             	error('zbio_Matching_fails, use a different a-value. Location; x=%i, y=%i ', x,y); 
+                                DOU_simulated = NaN;
                             end
-                            swi.p_a = swi.p_a*DOU_frac_simulated;
-%                             if(DOU_simulated > DOU_local_Jorgensen  || res.zbio_Matching_fails)
-%                                 % decrease reactivity (i.e., increase a-value)
-%                                 swi.p_a = swi.p_a*1.1;
-%                             else
-%                                 % increase reactivity (i.e., decrease a-value)
-%                                 swi.p_a = swi.p_a*0.9;
-%                                 
-%                             end
+                            if(isnan(DOU_simulated))
+                                if(swi.BC_wdepth<6500)
+                                % set p_a to random number between 5 and 50
+                                swi.p_a = 5 + 45*rand(1);
+%                                swi.p_a = randi([5 20]);     
+                                else
+                                    % set p_a to random number between 50 and 200
+                                    swi.p_a = 50 + 150*rand(1);                                    
+                                end
+                            else
+                                swi.p_a = swi.p_a*DOU_frac_simulated;
+                            end
                             % RUN OMEN with updated a-value
                             res = benthic_test.calc_DOU(1,swi);
                             DOU_iterations_local = DOU_iterations_local + 1;
                             DOU_simulated = -res.flxswiO2_DOU;    % in mol cm-2 yr^-1   (change sign from negative to positiv)
-                            DOU_frac_simulated = DOU_simulated/DOU_local_Jorgensen;
-                            fprintf('it. %i \n',  DOU_iterations_local);
+                            if(print_iterations)
+                                fprintf('it = %i; a = %d ; DOU_sim = %d: DOU_frac = %d \n',  DOU_iterations_local, swi.p_a, DOU_simulated, DOU_simulated/DOU_local_Jorgensen);
+                            end
+                            if(DOU_simulated <= 0.0 || isnan(DOU_simulated))
+                                DOU_simulated = NaN;   % use radom a-value in next step
+                                DOU_frac_simulated = NaN;
+                            else
+                                DOU_frac_simulated = DOU_simulated/DOU_local_Jorgensen;
+                            end
+                            if(DOU_iterations_local>max_DOU_iterations)
+                                swi.p_a = NaN;
+                                DOU_simulated =NaN;
+                             	DOU_iterations_failed = DOU_iterations_failed + 1;
+                                DOU_iterations_failed_xy(DOU_iterations_failed,:)=[x y];
+                                DOU_iterations_failed_water_depth(DOU_iterations_failed)= swi.BC_wdepth;
+                               break 
+                            end
                         end
                         DOU_iterations(x,y) = DOU_iterations_local;
                         a_values_best(x,y) = swi.p_a;
@@ -314,20 +349,28 @@ classdef benthic_test
                     
                 end
             end
-            wrong_iter
-            wrong_iter_age
            	Restreppo_NaN
-
+            DOU_iterations_failed
 
             
             zbio_nan
             zbio_good
             
+            res.a_values_best = a_values_best;
+            res.DOU_iterations = DOU_iterations;
+            res.DOU_simulated_best = DOU_simulated_best;
             % save data            
             save(['./data/BC_calc_a_from_Jorgensen/' str_date '_a_values_best_' string_out '.mat'] , 'a_values_best')
             save(['./data/BC_calc_a_from_Jorgensen/' str_date '_DOU_iterations_' string_out '.mat'] , 'DOU_iterations')
             save(['./data/BC_calc_a_from_Jorgensen/' str_date '_DOU_simulated_best_' string_out '.mat'] , 'DOU_simulated_best')
 
+            res.DOU_iterations_failed = DOU_iterations_failed;
+            res.DOU_iterations_failed_xy = DOU_iterations_failed_xy;
+            res.DOU_iterations_failed_water_depth = DOU_iterations_failed_water_depth;
+            % save failed diagnostics            
+            save(['./data/BC_calc_a_from_Jorgensen/' str_date '_DOU_iterations_failed_' string_out '.mat'] , 'DOU_iterations_failed')
+            save(['./data/BC_calc_a_from_Jorgensen/' str_date '_DOU_iterations_failed_xy_' string_out '.mat'] , 'DOU_iterations_failed_xy')
+            save(['./data/BC_calc_a_from_Jorgensen/' str_date '_DOU_iterations_failed_water_depth_' string_out '.mat'] , 'DOU_iterations_failed_water_depth')
         end
 
         
