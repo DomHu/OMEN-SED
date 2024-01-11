@@ -13,6 +13,9 @@ classdef benthic_zO2
     methods
         function obj = benthic_zO2(bsd, swi)
             obj.DO21=(obj.qdispO2+obj.adispO2*swi.T)*bsd.dispFactor+bsd.Dbio;
+            if(isfield(swi, 'Dbio_O2_zero') && swi.Dbio_O2_zero==true)           % if I want to set bio-diffusion to zero
+                obj.DO21=(obj.qdispO2+obj.adispO2*swi.T)*bsd.dispFactor;
+            end
             obj.DO22=(obj.qdispO2+obj.adispO2*swi.T)*bsd.dispFactor;
             
             

@@ -85,11 +85,11 @@ classdef benthic_test
         end
         
         
-    	function [res] = calc_a_from_Jorgensen_DOU(SAR_Restreppo, Db_Middelburg, string_out, Zinf)
+    	function [res] = calc_a_from_Jorgensen_DOU(SAR_Restreppo, Db_Middelburg, string_out, Zinf, toc_load)
             %% Calculate a values based on the DOU map of Jorgensen et al. (2022)
             %% Use all our updated boundary conditions, e.g., the Restreppo sedimentation rates, spatially explicit porosity values, zbio after Song et al., and new surface TOC wt%. 
             
-            % default call benthic_test.calc_a_from_Jorgensen_DOU(true, true, 'DOU_calculation', 800)
+            % default call benthic_test.calc_a_from_Jorgensen_DOU(true, true, 'DOU_calculation', 800, 'best')
             
             % SAR_Restreppo:    true : use Restreppo data 
             %                   false : use Burwicz parameterization
@@ -102,6 +102,8 @@ classdef benthic_test
             
             zbio_fix = false;   % set this true to use zbio_global everywhere
             zbio_global=5.75;   % 5.75 cm (Teal et al., 2008) and 9.8 cm (Boudreau, 1998)
+            
+            Dbio_O2_zero = true;     % set Dbio = 0 for O2 calculations to eliminate any bio for DOU
                         
             warning('query','all')
             warning('off','all')
@@ -117,6 +119,8 @@ classdef benthic_test
             % set default SWI model boundary conditions and flags           
             swi = benthic_test.default_swi();
             swi.Iron=false;                 % calculate Fe (true/false)
+            
+            swi.Dbio_O2_zero = Dbio_O2_zero;
 
         	swi.sed_column_depth = Zinf;    % use Zinf as bsd.zinf
 
@@ -130,8 +134,28 @@ classdef benthic_test
             %__________________________________________________________________________
             %   load global data
             %__________________________________________________________________________
-            toc = load('./data/BC_calc_a_from_Jorgensen/surfOC_matrix_2023_new_v01.csv');
-            porosity_matrix_new = load('./data/BC_calc_a_from_Jorgensen/porosity_matrix_2023_new_v01.csv');
+            
+            %%%%%%%%%%%%%%%%%%
+            if(strcmp(toc_load,'best'))
+               	toc = load('./data/BC_calc_a_from_Jorgensen/Input_toc_por/surfOC_matrix_2023_new_v01.csv');           
+                porosity_matrix_new = load('./data/BC_calc_a_from_Jorgensen/Input_toc_por/porosity_matrix_2023_new_v01.csv');
+              	string_out = [string_out  '_Best'];
+                SA_coefficient = 1.0;
+            elseif(strcmp(toc_load,'low'))
+             	toc = load('./data/BC_calc_a_from_Jorgensen/Input_toc_por/surfOC_p5_matrix_2023-06-14_new.csv');                 
+                porosity_matrix_new = load('./data/BC_calc_a_from_Jorgensen/Input_toc_por/porosity_p95_matrix_2023-06-14_new.csv');
+              	string_out = [string_out  '_Low'];
+                SA_coefficient = 1.0;   % 0.9;   Do nat change them for a-value calculation
+            elseif(strcmp(toc_load,'high'))
+                toc = load('./data/BC_calc_a_from_Jorgensen/Input_toc_por/surfOC_p95_matrix_2023-06-14_new.csv');                    
+                porosity_matrix_new = load('./data/BC_calc_a_from_Jorgensen/Input_toc_por/porosity_p5_matrix_2023-06-14_new.csv');
+              	string_out = [string_out  '_High'];
+                SA_coefficient = 1.0;   % 1.1;   Do nat change them for a-value calculation
+            else
+                error('Not a valid 2nd input. Use one of: best, high, low');
+            end            
+            
+            %%%%%%%%%%%%%%%%%
             
             % load Restreppo SAR
             SAR_Restreppo_data = load('./data/BC_calc_a_from_Jorgensen/Restreppo_sar_matrix_2023-09-21_new.csv');            
@@ -212,7 +236,7 @@ classdef benthic_test
 
                     else	% valid boundary conditions: run OMEN
                                             
-                        fprintf('Lat x = %i; Long y = %i \n', x, y);
+                        fprintf(['TOC load ' toc_load ', Lat x = %i; Long y = %i \n'], x, y);
 
                         % set local boundary conditions                         
                         rho_sed_loc = 2.5;
@@ -239,7 +263,7 @@ classdef benthic_test
                                 swi.BC_sed_rate=benthic_main.sedrate(res.bsd.wdepth)*SA_coefficient;
                                 Restreppo_NaN = Restreppo_NaN+1;
                             end
-                        else
+                        else    % use Burwicz parameterization
                             swi.BC_sed_rate=benthic_main.sedrate(swi.BC_wdepth)*SA_coefficient;
                         end                        
                         
@@ -360,17 +384,17 @@ classdef benthic_test
             res.DOU_iterations = DOU_iterations;
             res.DOU_simulated_best = DOU_simulated_best;
             % save data            
-            save(['./data/BC_calc_a_from_Jorgensen/' str_date '_a_values_best_' string_out '.mat'] , 'a_values_best')
-            save(['./data/BC_calc_a_from_Jorgensen/' str_date '_DOU_iterations_' string_out '.mat'] , 'DOU_iterations')
-            save(['./data/BC_calc_a_from_Jorgensen/' str_date '_DOU_simulated_best_' string_out '.mat'] , 'DOU_simulated_best')
+            save(['./data/BC_calc_a_from_Jorgensen/results/' str_date '_a_values_best_' string_out '.mat'] , 'a_values_best')
+            save(['./data/BC_calc_a_from_Jorgensen/results/' str_date '_DOU_iterations_' string_out '.mat'] , 'DOU_iterations')
+            save(['./data/BC_calc_a_from_Jorgensen/results/' str_date '_DOU_simulated_best_' string_out '.mat'] , 'DOU_simulated_best')
 
             res.DOU_iterations_failed = DOU_iterations_failed;
             res.DOU_iterations_failed_xy = DOU_iterations_failed_xy;
             res.DOU_iterations_failed_water_depth = DOU_iterations_failed_water_depth;
             % save failed diagnostics            
-            save(['./data/BC_calc_a_from_Jorgensen/' str_date '_DOU_iterations_failed_' string_out '.mat'] , 'DOU_iterations_failed')
-            save(['./data/BC_calc_a_from_Jorgensen/' str_date '_DOU_iterations_failed_xy_' string_out '.mat'] , 'DOU_iterations_failed_xy')
-            save(['./data/BC_calc_a_from_Jorgensen/' str_date '_DOU_iterations_failed_water_depth_' string_out '.mat'] , 'DOU_iterations_failed_water_depth')
+            save(['./data/BC_calc_a_from_Jorgensen/results/' str_date '_DOU_iterations_failed_' string_out '.mat'] , 'DOU_iterations_failed')
+            save(['./data/BC_calc_a_from_Jorgensen/results/' str_date '_DOU_iterations_failed_xy_' string_out '.mat'] , 'DOU_iterations_failed_xy')
+            save(['./data/BC_calc_a_from_Jorgensen/results/' str_date '_DOU_iterations_failed_water_depth_' string_out '.mat'] , 'DOU_iterations_failed_water_depth')
         end
 
         
