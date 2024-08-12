@@ -166,6 +166,12 @@ classdef benthic_main < handle
 %            w = 60/1000;    % To compare with Dale et al. (2015)
         end
         
+        function w = sedrate_Middelburg(wdepth)
+            % sedimentation rate, cm/yr (after Middelburg et al. (1997)) 
+            w = 10.0.^(-0.87478367-0.00043512*wdepth)*3.3;
+
+        end
+        
         function Dbio = biorate(wdepth)
             % bioturbation coeff, cm^2/yr (after Middelburg et al. (1997)) 
             Dbio= 5.2*(10.0^(0.7624-0.0003972*wdepth));	

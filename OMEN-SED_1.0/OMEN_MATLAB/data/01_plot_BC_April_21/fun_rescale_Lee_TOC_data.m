@@ -10,7 +10,7 @@ load_and_plot_Lee_data = true;
 path(path,'/home/domhu/Documents/MATLAB/M_Map');
 
 if(load_and_plot_Lee_data)
-    load('./data/DatasetS1_Lee_ea2019.txt');
+    load('../TOC/DatasetS1_Lee_ea2019.txt');
     % reshape into matrix
     Lee_TOC=DatasetS1_Lee_ea2019(:,3);
     Lee_TOC_matrix = reshape(Lee_TOC,4320,2160);
@@ -45,7 +45,7 @@ end
 %% Generate lower degree resolution
 clear toc_sub dxdy_submatrix  Lee_toc_lr Lee_toc_lr_weighted
 
-calc_res = 3;  % 1: 1/4; 2: 1 degree; 3: 2 degree resolution
+calc_res = 1;  % 1: 1/4; 2: 1 degree; 3: 2 degree resolution
 
 % first calculate the area of the different grid-cells; needed to calculate the
 % weighted average of TOC
@@ -102,12 +102,12 @@ end
 
 switch calc_res
     case 1
-    save('./BC_Quarterdegree/Lee_toc_lr.mat' , 'Lee_toc_lr')      
-    save('./BC_Quarterdegree/Lee_toc_lr_weighted.mat' , 'Lee_toc_lr_weighted')      
+%    save('./BC_Quarterdegree/Lee_toc_lr.mat' , 'Lee_toc_lr')      
+    save('./BC_Quarterdegree/Lee_toc_lr_weighted_240415.mat' , 'Lee_toc_lr_weighted')      
     lat_lr = (-89.875:0.25:89.875)';
     long_lr = (-179.875:0.25:179.875)';     
-    save('./BC_Quarterdegree/lat_lr.mat' , 'lat_lr')      
-    save('./BC_Quarterdegree/long_lr.mat' , 'long_lr')      
+%    save('./BC_Quarterdegree/lat_lr.mat' , 'lat_lr')      
+%    save('./BC_Quarterdegree/long_lr.mat' , 'long_lr')      
     
 
     case 2
@@ -166,6 +166,7 @@ switch calc_res
       print(fig_toc_Lee_lr,'-depsc2', ['TOC_input_Lee_2degree.eps']);  
 end
     
+if false
     fig_toc_Lee_1degree_weighted = figure;
     m_proj('Robinson','longitudes',[-180 179.99], ...
         'latitudes',[-90 90]);
@@ -199,7 +200,7 @@ switch calc_res
     case 3
     print(fig_toc_Lee_1degree_weighted,'-depsc2', ['TOC_input_Lee_2degree_weighted.eps']);
 end
-
+end
 
 
 function dy = lat_to_m(dlat,alat)
