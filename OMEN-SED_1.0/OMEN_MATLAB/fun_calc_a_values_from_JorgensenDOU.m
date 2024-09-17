@@ -11,9 +11,40 @@ Zinf = 800;     % enough fo r
 
 % TODO: loop to calc a-values for uncertainty propagation
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% UNCERTAINTY VALUES
+
+%% Restreppo SAR
+SAR = 'Restreppo';
+string_out = 'DOU_calc_Restrep_SA_TOCPOR';
+
+toc_load = 'SA'
+por_in = 'SA'
+TOC_SA = struct2array(load('/home/domhu/Documents/GitHub/CoastalCarbonBurial/OMEN/CalcAvalues/output/Random_numbers_TOC_x5_240917.mat'));
+POR_SA = struct2array(load('/home/domhu/Documents/GitHub/CoastalCarbonBurial/OMEN/CalcAvalues/output/Random_numbers_POR_x5_240917.mat'));
+SA_exps = length(TOC_SA);
+for k=1:SA_exps
+    res_Restreppo_best = benthic_test.calc_a_from_Jorgensen_DOU(SAR, Db_Middelburg, string_out, 800, toc_load, por_in, k, TOC_SA{k}, POR_SA{k});
+end
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% CALCULATE a-VALUES FOR BEST TOC & POR -- and also extreme BCs
 
 % orginal toc from MArkus without back calculation
+if false % used before, e.g., 240810
+    
 %% Restreppo SAR
+SAR = 'Restreppo';
+string_out = 'DOU_calc_Restrep';
+
+toc_load = 'best'
+por_in = 'por_best'
+res_Restreppo_best = benthic_test.calc_a_from_Jorgensen_DOU(SAR, Db_Middelburg, string_out, 800, toc_load, por_in);
+
+
 SAR = 'Restreppo_low';
 string_out = 'DOU_calc_Restrep_low';
 
@@ -29,7 +60,6 @@ por_in = 'por_best'
 res_Restreppo_high_best = benthic_test.calc_a_from_Jorgensen_DOU(SAR, Db_Middelburg, string_out, 800, toc_load, por_in);
 
 
-if false % used before, e.g., 240810
 %% Restreppo SAR
 SAR = 'Restreppo';
 string_out = 'DOU_calc_Restrep';
@@ -75,6 +105,13 @@ por_in = 'por_best'
 res_Middelburg_best = benthic_test.calc_a_from_Jorgensen_DOU(SAR, Db_Middelburg, string_out, 800, toc_load, por_in);
 end
 
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%% OLD STUFF
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 if false
     %% Burwicz SAR  -- only do best estimates here

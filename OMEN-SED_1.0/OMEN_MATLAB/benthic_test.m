@@ -85,7 +85,7 @@ classdef benthic_test
         end
         
         
-    	function [res] = calc_a_from_Jorgensen_DOU(SAR, Db_Middelburg, string_out, Zinf, toc_load, por_in)
+    	function [res] = calc_a_from_Jorgensen_DOU(SAR, Db_Middelburg, string_out, Zinf, toc_load, por_in, k, TOC_SA, POR_SA)
             %% Calculate a values based on the DOU map of Jorgensen et al. (2022)
             %% Use all our updated boundary conditions, e.g., the Restreppo sedimentation rates, spatially explicit porosity values, zbio after Song et al., and new surface TOC wt%. 
             %% Call from fun_calc_a_values_from_JorgensenDOU()
@@ -119,10 +119,8 @@ classdef benthic_test
             warning
             
             str_date = [datestr(date,11), datestr(date,5), datestr(date,7)];
-            str_date = '240810';
-            
-            SA_coefficient = 1.0;
-            
+%            str_date = '240810';
+                        
             lat = (89.875:-0.25:-89.875);
             long = (-179.875:0.25:179.875);
             
@@ -146,38 +144,57 @@ classdef benthic_test
             %__________________________________________________________________________
             
             %%%%%%%%%%%%%%%%%%
-            if(strcmp(toc_load,'best'))
-               	toc = load('./data/BC_calc_a_from_Jorgensen/Input_toc_por/surfOC_matrix_2023_new_v01.csv');           
-%                 porosity_matrix_new = load('./data/BC_calc_a_from_Jorgensen/Input_toc_por/porosity_matrix_2023_new_v01.csv');
-              	string_out = [string_out  '_BestTOC'];
-                SA_coefficient = 1.0;
-            elseif(strcmp(toc_load,'low'))
-             	toc = load('./data/BC_calc_a_from_Jorgensen/Input_toc_por/surfOC_p5_matrix_2023-06-14_new.csv');                 
-%                 porosity_matrix_new = load('./data/BC_calc_a_from_Jorgensen/Input_toc_por/porosity_p95_matrix_2023-06-14_new.csv');
-              	string_out = [string_out  '_LowTOC'];
-                SA_coefficient = 1.0;   % 0.9;   Do nat change them for a-value calculation
-            elseif(strcmp(toc_load,'high'))
-                toc = load('./data/BC_calc_a_from_Jorgensen/Input_toc_por/surfOC_p95_matrix_2023-06-14_new.csv');                    
-%                 porosity_matrix_new = load('./data/BC_calc_a_from_Jorgensen/Input_toc_por/porosity_p5_matrix_2023-06-14_new.csv');
-              	string_out = [string_out  '_HighTOC'];
-                SA_coefficient = 1.0;   % 1.1;   Do nat change them for a-value calculation
-            else
-                error('Not a valid toc input. Use one of: best, high, low');
-            end 
-            
-         	if(strcmp(por_in,'por_best'))
-                porosity_matrix_new = load('./data/BC_calc_a_from_Jorgensen/Input_toc_por/porosity_matrix_2023_new_v01.csv');
-                string_out = [string_out  '_BestPOR'];
-          	elseif(strcmp(por_in,'por_low'))
-                porosity_matrix_new = load('./data/BC_calc_a_from_Jorgensen/Input_toc_por/porosity_p95_matrix_2023-06-14_new.csv');
-              	string_out = [string_out  '_LowPOR'];                
-          	elseif(strcmp(por_in,'por_high'))
-                porosity_matrix_new = load('./data/BC_calc_a_from_Jorgensen/Input_toc_por/porosity_p5_matrix_2023-06-14_new.csv');
-              	string_out = [string_out  '_HighPOR'];                
-            else
-                error('Not a valid por input. Use one of: por_best, por_low, por_high');
-            end 
+            if(strcmp(toc_load,'SA'))
+                %% perform a SA for TOC, POR, and SAR input
+                toc_median = load('/home/domhu/Documents/GitHub/CoastalCarbonBurial/OMEN/CalcCBurial/data/BC_toc_por_sar_bio/surfOC_matrix_2023_new_v01.csv');
+                Diff_toc_low = struct2array(load('/home/domhu/Documents/GitHub/CoastalCarbonBurial/OMEN/CalcCBurial/data/BC_toc_por_sar_bio/surfOC_Diff_low.mat'));
+                Diff_toc_high = struct2array(load('/home/domhu/Documents/GitHub/CoastalCarbonBurial/OMEN/CalcCBurial/data/BC_toc_por_sar_bio/surfOC_Diff_high.mat'));
+                
+                toc=nan(size(toc_median));
+                toc(TOC_SA>=0) = toc_median(TOC_SA>=0) + TOC_SA(TOC_SA>=0) .* Diff_toc_high(TOC_SA>=0);
+                toc(TOC_SA<0) = toc_median(TOC_SA<0) + TOC_SA(TOC_SA<0) .* Diff_toc_low(TOC_SA<0);
+                
+                porosity_median = load('/home/domhu/Documents/GitHub/CoastalCarbonBurial/OMEN/CalcCBurial/data/BC_toc_por_sar_bio/porosity_matrix_2023_new_v01.csv');
+                porosity_median(isnan(toc_median))= NaN;
+                Diff_por_low = struct2array(load('/home/domhu/Documents/GitHub/CoastalCarbonBurial/OMEN/CalcCBurial/data/BC_toc_por_sar_bio/porosity_Diff_low.mat'));
+                Diff_por_high = struct2array(load('/home/domhu/Documents/GitHub/CoastalCarbonBurial/OMEN/CalcCBurial/data/BC_toc_por_sar_bio/porosity_Diff_high.mat'));
+                
+                porosity_matrix_new=nan(size(toc_median));
+                porosity_matrix_new(POR_SA>=0) = porosity_median(POR_SA>=0) + POR_SA(POR_SA>=0) .* Diff_por_high(POR_SA>=0);
+                porosity_matrix_new(POR_SA<0) = porosity_median(POR_SA<0) + POR_SA(POR_SA<0) .* Diff_por_low(POR_SA<0);
+                                    
+                string_out = [string_out  '_' num2str(k)];
 
+            else
+                if(strcmp(toc_load,'best'))
+                    toc = load('./data/BC_calc_a_from_Jorgensen/Input_toc_por/surfOC_matrix_2023_new_v01.csv');
+                    %                 porosity_matrix_new = load('./data/BC_calc_a_from_Jorgensen/Input_toc_por/porosity_matrix_2023_new_v01.csv');
+                    string_out = [string_out  '_BestTOC'];
+                elseif(strcmp(toc_load,'low'))
+                    toc = load('./data/BC_calc_a_from_Jorgensen/Input_toc_por/surfOC_p5_matrix_2023-06-14_new.csv');
+                    %                 porosity_matrix_new = load('./data/BC_calc_a_from_Jorgensen/Input_toc_por/porosity_p95_matrix_2023-06-14_new.csv');
+                    string_out = [string_out  '_LowTOC'];
+                elseif(strcmp(toc_load,'high'))
+                    toc = load('./data/BC_calc_a_from_Jorgensen/Input_toc_por/surfOC_p95_matrix_2023-06-14_new.csv');
+                    %                 porosity_matrix_new = load('./data/BC_calc_a_from_Jorgensen/Input_toc_por/porosity_p5_matrix_2023-06-14_new.csv');
+                    string_out = [string_out  '_HighTOC'];
+                else
+                    error('Not a valid toc input. Use one of: best, high, low');
+                end
+                
+                if(strcmp(por_in,'por_best'))
+                    porosity_matrix_new = load('./data/BC_calc_a_from_Jorgensen/Input_toc_por/porosity_matrix_2023_new_v01.csv');
+                    string_out = [string_out  '_BestPOR'];
+                elseif(strcmp(por_in,'por_low'))
+                    porosity_matrix_new = load('./data/BC_calc_a_from_Jorgensen/Input_toc_por/porosity_p95_matrix_2023-06-14_new.csv');
+                    string_out = [string_out  '_LowPOR'];
+                elseif(strcmp(por_in,'por_high'))
+                    porosity_matrix_new = load('./data/BC_calc_a_from_Jorgensen/Input_toc_por/porosity_p5_matrix_2023-06-14_new.csv');
+                    string_out = [string_out  '_HighPOR'];
+                else
+                    error('Not a valid por input. Use one of: por_best, por_low, por_high');
+                end
+            end
             %%%%%%%%%%%%%%%%%
             
             % load Restreppo SAR
@@ -270,7 +287,7 @@ classdef benthic_test
 
                     else	% valid boundary conditions: run OMEN
                                             
-                        fprintf(['SAR ' SAR ', TOC ' toc_load ', ' por_in ', Lat x = %i; Long y = %i \n'], x, y);
+%                        fprintf(['SAR ' SAR ', TOC ' toc_load ', ' por_in ', Lat x = %i; Long y = %i \n'], x, y);
 
                         % set local boundary conditions                         
                         rho_sed_loc = 2.5;
@@ -291,47 +308,53 @@ classdef benthic_test
                                                
                         swi.BC_wdepth = -water_depth(x,y);
 
-                                    
-                        if(strcmp(SAR,'Restreppo'))
-                            swi.BC_sed_rate=SAR_Restreppo_data(x,y)*SA_coefficient;
-                            if(isnan(swi.BC_sed_rate))
-                                swi.BC_sed_rate=benthic_main.sedrate(res.bsd.wdepth)*SA_coefficient;
-                                Restreppo_NaN = Restreppo_NaN+1;
-                            end
-                        elseif(strcmp(SAR,'Restreppo_low'))
-                            swi.BC_sed_rate=SAR_Restreppo_data_low(x,y)*SA_coefficient;
-                            if(isnan(swi.BC_sed_rate))
-                                swi.BC_sed_rate=benthic_main.sedrate(res.bsd.wdepth)*SA_coefficient;
-                                Restreppo_NaN = Restreppo_NaN+1;
-                            end
-                        elseif(strcmp(SAR,'Restreppo_high'))
-                            swi.BC_sed_rate=SAR_Restreppo_data_high(x,y)*SA_coefficient;
-                            if(isnan(swi.BC_sed_rate))
-                                swi.BC_sed_rate=benthic_main.sedrate(res.bsd.wdepth)*SA_coefficient;
-                                Restreppo_NaN = Restreppo_NaN+1;
-                            end
-                        elseif(strcmp(SAR,'Burwicz'))
-                            % use Burwicz parameterization
-                           swi.BC_sed_rate=benthic_main.sedrate(swi.BC_wdepth)*SA_coefficient;
-                        elseif(strcmp(SAR,'Middelburg'))
-                            % use Middelburg parameterization
-                            swi.BC_sed_rate=benthic_main.sedrate_Middelburg(swi.BC_wdepth)*SA_coefficient;
-                        else
-                            error('Not a valid SAR input. Use one of: Restreppo, Burwicz, Middelburg');
-                        end                        
+                        swi.BC_sed_rate=SAR_Restreppo_data(x,y);
+                        if(isnan(swi.BC_sed_rate))
+                            swi.BC_sed_rate=benthic_main.sedrate(res.bsd.wdepth);
+                            Restreppo_NaN = Restreppo_NaN+1;
+                        end
+
+% %                         % TODO: to make faster - save this in matrix outside loop
+% %                         if(strcmp(SAR,'Restreppo'))
+% %                             swi.BC_sed_rate=SAR_Restreppo_data(x,y);
+% %                             if(isnan(swi.BC_sed_rate))
+% %                                 swi.BC_sed_rate=benthic_main.sedrate(res.bsd.wdepth);
+% %                                 Restreppo_NaN = Restreppo_NaN+1;
+% %                             end
+% %                         elseif(strcmp(SAR,'Restreppo_low'))
+% %                             swi.BC_sed_rate=SAR_Restreppo_data_low(x,y);
+% %                             if(isnan(swi.BC_sed_rate))
+% %                                 swi.BC_sed_rate=benthic_main.sedrate(res.bsd.wdepth);
+% %                                 Restreppo_NaN = Restreppo_NaN+1;
+% %                             end
+% %                         elseif(strcmp(SAR,'Restreppo_high'))
+% %                             swi.BC_sed_rate=SAR_Restreppo_data_high(x,y);
+% %                             if(isnan(swi.BC_sed_rate))
+% %                                 swi.BC_sed_rate=benthic_main.sedrate(res.bsd.wdepth);
+% %                                 Restreppo_NaN = Restreppo_NaN+1;
+% %                             end
+% %                         elseif(strcmp(SAR,'Burwicz'))
+% %                             % use Burwicz parameterization
+% %                            swi.BC_sed_rate=benthic_main.sedrate(swi.BC_wdepth);
+% %                         elseif(strcmp(SAR,'Middelburg'))
+% %                             % use Middelburg parameterization
+% %                             swi.BC_sed_rate=benthic_main.sedrate_Middelburg(swi.BC_wdepth);
+% %                         else
+% %                             error('Not a valid SAR input. Use one of: Restreppo, Burwicz, Middelburg');
+% %                         end                        
                         
                         if(Db_Middelburg)
-                            swi.Dbio=benthic_main.biorate(swi.BC_wdepth)*SA_coefficient;                       
+                            swi.Dbio=benthic_main.biorate(swi.BC_wdepth);                       
                         else
-                            swi.Dbio=benthic_main.biorate_Solan_MARCATS(swi.BC_wdepth)*SA_coefficient;    
+                            swi.Dbio=benthic_main.biorate_Solan_MARCATS(swi.BC_wdepth);    
                         end
                         
-                        swi.zbio=zbio_interpolated(x,y)*SA_coefficient;
+                        swi.zbio=zbio_interpolated(x,y);
                         if(zbio_fix)
                             swi.zbio=zbio_global;   % 5.75 cm (Teal et al., 2008) and 9.8 cm (Boudreau, 1998)
                         end
                         if(isnan(swi.zbio))
-                        	swi.zbio=zbio_global*SA_coefficient;  % set to zbio_global if no value
+                        	swi.zbio=zbio_global;  % set to zbio_global if no value
                            	zbio_nan=zbio_nan+1;
                         else
                             zbio_good=zbio_good+1;
@@ -420,7 +443,7 @@ classdef benthic_test
                         DOU_iterations(x,y) = DOU_iterations_local;
                         a_values_best(x,y) = swi.p_a;
                         DOU_simulated_best(x,y) = DOU_simulated;
-                        fprintf('\n');
+%                        fprintf('\n');
 
                     end
                     
@@ -438,6 +461,7 @@ classdef benthic_test
             res.DOU_simulated_best = DOU_simulated_best;
             % save data            
             save(['./data/BC_calc_a_from_Jorgensen/results/' str_date '_a_values_best_' string_out '.mat'] , 'a_values_best')
+            if false
             save(['./data/BC_calc_a_from_Jorgensen/results/' str_date '_DOU_iterations_' string_out '.mat'] , 'DOU_iterations')
             save(['./data/BC_calc_a_from_Jorgensen/results/' str_date '_DOU_simulated_best_' string_out '.mat'] , 'DOU_simulated_best')
 
@@ -448,6 +472,7 @@ classdef benthic_test
             save(['./data/BC_calc_a_from_Jorgensen/results/' str_date '_DOU_iterations_failed_' string_out '.mat'] , 'DOU_iterations_failed')
             save(['./data/BC_calc_a_from_Jorgensen/results/' str_date '_DOU_iterations_failed_xy_' string_out '.mat'] , 'DOU_iterations_failed_xy')
 %            save(['./data/BC_calc_a_from_Jorgensen/' str_date '_DOU_iterations_failed_water_depth_' string_out '.mat'] , 'DOU_iterations_failed_water_depth')
+            end
         end
 
         
