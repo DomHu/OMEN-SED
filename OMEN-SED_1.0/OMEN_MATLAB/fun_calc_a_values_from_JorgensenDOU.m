@@ -7,7 +7,11 @@
 Db_Middelburg = false;  % we use our new fit, see /Documents/Projects/18_RECCAP2/OMEN/Bioturbation/Solan_ea_2019/make_empirical_fct.m
 Zinf = 800;     % enough fo r
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+% TODO: loop to calc a-values for uncertainty propagation
+
+
 % orginal toc from MArkus without back calculation
 %% Restreppo SAR
 SAR = 'Restreppo_low';
