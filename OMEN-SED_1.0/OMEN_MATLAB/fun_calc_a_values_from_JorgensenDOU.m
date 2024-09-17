@@ -9,7 +9,23 @@ Zinf = 800;     % enough fo r
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % orginal toc from MArkus without back calculation
+%% Restreppo SAR
+SAR = 'Restreppo_low';
+string_out = 'DOU_calc_Restrep_low';
 
+toc_load = 'best'
+por_in = 'por_best'
+res_Restreppo_low_best = benthic_test.calc_a_from_Jorgensen_DOU(SAR, Db_Middelburg, string_out, 800, toc_load, por_in);
+
+SAR = 'Restreppo_high';
+string_out = 'DOU_calc_Restrep_high';
+
+toc_load = 'best'
+por_in = 'por_best'
+res_Restreppo_high_best = benthic_test.calc_a_from_Jorgensen_DOU(SAR, Db_Middelburg, string_out, 800, toc_load, por_in);
+
+
+if false % used before, e.g., 240810
 %% Restreppo SAR
 SAR = 'Restreppo';
 string_out = 'DOU_calc_Restrep';
@@ -53,7 +69,7 @@ string_out = 'DOU_calc_Middelburg';
 toc_load = 'best'
 por_in = 'por_best'
 res_Middelburg_best = benthic_test.calc_a_from_Jorgensen_DOU(SAR, Db_Middelburg, string_out, 800, toc_load, por_in);
-
+end
 
 
 if false

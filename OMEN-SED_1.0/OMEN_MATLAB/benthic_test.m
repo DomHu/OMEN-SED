@@ -182,6 +182,9 @@ classdef benthic_test
             
             % load Restreppo SAR
             SAR_Restreppo_data = load('./data/BC_calc_a_from_Jorgensen/Restreppo_sar_matrix_2023-09-21_new.csv');            
+            SAR_Restreppo_data_low = struct2array(load('./data/BC_calc_a_from_Jorgensen/Restreppo_sar_low_240914.mat'));
+            SAR_Restreppo_data_high = struct2array(load('./data/BC_calc_a_from_Jorgensen/Restreppo_sar_high_240914.mat'));
+            
             
             water_depth_all = load('./data/BC_calc_a_from_Jorgensen/bathymetry_matrix_new.csv');
             water_depth = water_depth_all;
@@ -291,6 +294,18 @@ classdef benthic_test
                                     
                         if(strcmp(SAR,'Restreppo'))
                             swi.BC_sed_rate=SAR_Restreppo_data(x,y)*SA_coefficient;
+                            if(isnan(swi.BC_sed_rate))
+                                swi.BC_sed_rate=benthic_main.sedrate(res.bsd.wdepth)*SA_coefficient;
+                                Restreppo_NaN = Restreppo_NaN+1;
+                            end
+                        elseif(strcmp(SAR,'Restreppo_low'))
+                            swi.BC_sed_rate=SAR_Restreppo_data_low(x,y)*SA_coefficient;
+                            if(isnan(swi.BC_sed_rate))
+                                swi.BC_sed_rate=benthic_main.sedrate(res.bsd.wdepth)*SA_coefficient;
+                                Restreppo_NaN = Restreppo_NaN+1;
+                            end
+                        elseif(strcmp(SAR,'Restreppo_high'))
+                            swi.BC_sed_rate=SAR_Restreppo_data_high(x,y)*SA_coefficient;
                             if(isnan(swi.BC_sed_rate))
                                 swi.BC_sed_rate=benthic_main.sedrate(res.bsd.wdepth)*SA_coefficient;
                                 Restreppo_NaN = Restreppo_NaN+1;
