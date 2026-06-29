@@ -256,9 +256,9 @@ classdef benthic_test
 
 %            res.swi = swi;
             
-            xstart=1;  %213;   %189;	% lat
+            xstart=1; % 1;  %213;   %189;	% lat
             xstop=m;   %230         % lat
-            ystart=1;   %837;   % long
+            ystart=1;  % 1296 %837;   % long
             ystop= n;  % 6;        %long (or the other way around- who knows!)
             
             % from here this comes from test_benthic():
@@ -280,7 +280,6 @@ classdef benthic_test
                 dx = 0.25*p*100.0; %cm
                 
                 for y = ystart:ystop   %n
-%                for y = ystart:ystop
                     if ((isnan(toc(x,y))))    % check for toc = NaN
 
                       	dxdy(x,y)   = NaN;                                               
@@ -308,40 +307,35 @@ classdef benthic_test
                                                
                         swi.BC_wdepth = -water_depth(x,y);
 
-                        swi.BC_sed_rate=SAR_Restreppo_data(x,y);
-                        if(isnan(swi.BC_sed_rate))
-                            swi.BC_sed_rate=benthic_main.sedrate(res.bsd.wdepth);
-                            Restreppo_NaN = Restreppo_NaN+1;
-                        end
 
-% %                         % TODO: to make faster - save this in matrix outside loop
-% %                         if(strcmp(SAR,'Restreppo'))
-% %                             swi.BC_sed_rate=SAR_Restreppo_data(x,y);
-% %                             if(isnan(swi.BC_sed_rate))
-% %                                 swi.BC_sed_rate=benthic_main.sedrate(res.bsd.wdepth);
-% %                                 Restreppo_NaN = Restreppo_NaN+1;
-% %                             end
-% %                         elseif(strcmp(SAR,'Restreppo_low'))
-% %                             swi.BC_sed_rate=SAR_Restreppo_data_low(x,y);
-% %                             if(isnan(swi.BC_sed_rate))
-% %                                 swi.BC_sed_rate=benthic_main.sedrate(res.bsd.wdepth);
-% %                                 Restreppo_NaN = Restreppo_NaN+1;
-% %                             end
-% %                         elseif(strcmp(SAR,'Restreppo_high'))
-% %                             swi.BC_sed_rate=SAR_Restreppo_data_high(x,y);
-% %                             if(isnan(swi.BC_sed_rate))
-% %                                 swi.BC_sed_rate=benthic_main.sedrate(res.bsd.wdepth);
-% %                                 Restreppo_NaN = Restreppo_NaN+1;
-% %                             end
-% %                         elseif(strcmp(SAR,'Burwicz'))
-% %                             % use Burwicz parameterization
-% %                            swi.BC_sed_rate=benthic_main.sedrate(swi.BC_wdepth);
-% %                         elseif(strcmp(SAR,'Middelburg'))
-% %                             % use Middelburg parameterization
-% %                             swi.BC_sed_rate=benthic_main.sedrate_Middelburg(swi.BC_wdepth);
-% %                         else
-% %                             error('Not a valid SAR input. Use one of: Restreppo, Burwicz, Middelburg');
-% %                         end                        
+                        % TODO: to make faster - save this in matrix outside loop
+                        if(strcmp(SAR,'Restreppo'))
+                            swi.BC_sed_rate=SAR_Restreppo_data(x,y);
+                            if(isnan(swi.BC_sed_rate))
+                                swi.BC_sed_rate=benthic_main.sedrate(res.bsd.wdepth);
+                                Restreppo_NaN = Restreppo_NaN+1;
+                            end
+                        elseif(strcmp(SAR,'Restreppo_low'))
+                            swi.BC_sed_rate=SAR_Restreppo_data_low(x,y);
+                            if(isnan(swi.BC_sed_rate))
+                                swi.BC_sed_rate=benthic_main.sedrate(res.bsd.wdepth);
+                                Restreppo_NaN = Restreppo_NaN+1;
+                            end
+                        elseif(strcmp(SAR,'Restreppo_high'))
+                            swi.BC_sed_rate=SAR_Restreppo_data_high(x,y);
+                            if(isnan(swi.BC_sed_rate))
+                                swi.BC_sed_rate=benthic_main.sedrate(res.bsd.wdepth);
+                                Restreppo_NaN = Restreppo_NaN+1;
+                            end
+                        elseif(strcmp(SAR,'Burwicz'))
+                            % use Burwicz parameterization
+                           swi.BC_sed_rate=benthic_main.sedrate(swi.BC_wdepth);
+                        elseif(strcmp(SAR,'Middelburg'))
+                            % use Middelburg parameterization
+                            swi.BC_sed_rate=benthic_main.sedrate_Middelburg(swi.BC_wdepth);
+                        else
+                            error('Not a valid SAR input. Use one of: Restreppo, Burwicz, Middelburg');
+                        end                        
                         
                         if(Db_Middelburg)
                             swi.Dbio=benthic_main.biorate(swi.BC_wdepth);                       
@@ -394,7 +388,7 @@ classdef benthic_test
                         
                         % check if TOC profile is wrong
                         if(res.zbio_Matching_fails)
-                            error('zbio_Matching_fails, use a different a-value. Location; x=%i, y=%i ', x,y);
+                            fprint('zbio_Matching_fails, use a different a-value. Location; x=%i, y=%i ', x,y);
                             % set next p_a to 10.0
                             DOU_simulated = NaN;                           
                         end
@@ -403,7 +397,8 @@ classdef benthic_test
                         % run OMEN with updated a-value
                         while (abs(DOU_frac_simulated - 1.0) > 0.05  || isnan(DOU_simulated))  % while more than 10% difference to observed DOU, keep changing a-value
                         	if(res.zbio_Matching_fails)
-                            	error('zbio_Matching_fails, use a different a-value. Location; x=%i, y=%i ', x,y); 
+                            	fprint('zbio_Matching_fails, use a different a-value. Location; x=%i, y=%i ', x,y); 
+%                             	error('zbio_Matching_fails, use a different a-value. Location; x=%i, y=%i ', x,y); 
                                 DOU_simulated = NaN;
                             end
                             if(isnan(DOU_simulated))
